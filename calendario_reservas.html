@@ -2,29 +2,49 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calendário de Reservas</title>
   <style>
     body {
       font-family: Arial, sans-serif;
+      background-color: #f8f9fa;
+      color: #333;
+      margin: 0;
+      padding: 20px;
     }
     .calendar-container {
       max-width: 800px;
       margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
     }
     .calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
       gap: 10px;
+      margin-top: 20px;
     }
     .calendar div {
       text-align: center;
       padding: 10px;
-      background: #f0f0f0;
-      cursor: pointer;
       border-radius: 4px;
+      cursor: pointer;
     }
-    .calendar div:hover {
+    .past-date {
+      background-color: #e0e0e0;
+      color: #999;
+      cursor: not-allowed;
+    }
+    .available-date {
+      background-color: #fff;
+      border: 1px solid #ddd;
+    }
+    .available-date:hover {
       background-color: #007bff;
       color: white;
     }
@@ -32,71 +52,116 @@
       background-color: #28a745;
       color: white;
     }
+    .in-range {
+      background-color: #b3d7ff;
+    }
+    .summary {
+      margin-top: 20px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #c82333;
+    }
   </style>
 </head>
 <body>
   <div class="calendar-container">
-    <h1>Calendário de Reservas</h1>
-    <p>Selecione as datas de entrada e saída.</p>
+    <h1>Calendário de Reservas - Maio 2025</h1>
     <div class="calendar" id="calendar"></div>
-    <div>
-      <p>Data de entrada: <span id="start-date"></span></p>
-      <p>Data de saída: <span id="end-date"></span></p>
-      <p>Total da estadia: R$ <span id="total-price"></span></p>
+    <div class="summary">
+      <p>Check-in: <span id="start-date"></span></p>
+      <p>Check-out: <span id="end-date"></span></p>
+      <p>Valor total: R$ <span id="total-price"></span></p>
+      <button onclick="resetSelection()">Limpar Seleção</button>
     </div>
   </div>
 
   <script>
-    function generateCalendar() {
-      const daysInMonth = new Date(2025, 5, 0).getDate(); // Maio 2025
-      const calendar = document.getElementById('calendar');
-      calendar.innerHTML = '';
+    const dailyRate = 1900;
+    const petFee = 150;
+    const extraGuestFee = 150;
+    const maxGuestsIncluded = 10;
 
-      for (let i = 1; i <= daysInMonth; i++) {
-        const dayDiv = document.createElement('div');
-        dayDiv.innerText = i;
-        dayDiv.addEventListener('click', () => selectDate(i));
-        calendar.appendChild(dayDiv);
-      }
-    }
+    const today = new Date();
+    const year = 2025;
+    const month = 4; // Maio (0 indexado)
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
 
+    const calendar = document.getElementById("calendar");
     let selectedStart = null;
     let selectedEnd = null;
 
-    function selectDate(day) {
-      if (!selectedStart) {
-        selectedStart = day;
-        document.getElementById('start-date').innerText = `${day}/05/2025`;
-      } else if (!selectedEnd && day > selectedStart) {
-        selectedEnd = day;
-        document.getElementById('end-date').innerText = `${day}/05/2025`;
-        calculateTotal();
-      }
+    function generateCalendar() {
+      calendar.innerHTML = "";
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const div = document.createElement("div");
+        div.innerText = day;
+        const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        div.className = isPast ? "past-date" : "available-date";
 
-      updateCalendar();
+        if (!isPast) {
+          div.addEventListener("click", () => handleDateClick(day));
+        }
+
+        calendar.appendChild(div);
+      }
     }
 
-    function updateCalendar() {
-      const days = document.querySelectorAll('.calendar div');
-      days.forEach(day => day.classList.remove('selected'));
+    function handleDateClick(day) {
+      if (!selectedStart || (selectedStart && selectedEnd)) {
+        selectedStart = day;
+        selectedEnd = null;
+      } else if (day > selectedStart) {
+        selectedEnd = day;
+        calculateTotal();
+      }
+      updateCalendarUI();
+    }
 
-      if (selectedStart) {
-        const startDiv = days[selectedStart - 1];
-        startDiv.classList.add('selected');
-      }
-      if (selectedEnd) {
-        const endDiv = days[selectedEnd - 1];
-        endDiv.classList.add('selected');
-      }
+    function updateCalendarUI() {
+      const days = document.querySelectorAll(".calendar div");
+      days.forEach((div, index) => {
+        div.classList.remove("selected", "in-range");
+        const day = index + 1;
+        if (selectedStart === day) {
+          div.classList.add("selected");
+        } else if (selectedStart && selectedEnd && day > selectedStart && day < selectedEnd) {
+          div.classList.add("in-range");
+        } else if (selectedEnd === day) {
+          div.classList.add("selected");
+        }
+      });
+
+      document.getElementById("start-date").innerText = selectedStart ? `${selectedStart}/05/2025` : "";
+      document.getElementById("end-date").innerText = selectedEnd ? `${selectedEnd}/05/2025` : "";
     }
 
     function calculateTotal() {
-      if (selectedStart && selectedEnd) {
-        const totalDays = selectedEnd - selectedStart + 1;
-        const dailyRate = 1900; // Valor da diária
-        const totalPrice = totalDays * dailyRate;
-        document.getElementById('total-price').innerText = totalPrice.toFixed(2);
-      }
+      const nights = selectedEnd - selectedStart;
+      const numGuests = 12; // você pode adaptar com input futuramente
+      const numPets = 1; // idem
+
+      const extraGuests = Math.max(0, numGuests - maxGuestsIncluded);
+      const total = (nights * dailyRate) + (extraGuests * extraGuestFee * nights) + (numPets * petFee);
+      document.getElementById("total-price").innerText = `${total.toFixed(2)} (média R$ ${(total / nights).toFixed(2)}/noite)`;
+    }
+
+    function resetSelection() {
+      selectedStart = null;
+      selectedEnd = null;
+      document.getElementById("start-date").innerText = "";
+      document.getElementById("end-date").innerText = "";
+      document.getElementById("total-price").innerText = "";
+      updateCalendarUI();
     }
 
     generateCalendar();
