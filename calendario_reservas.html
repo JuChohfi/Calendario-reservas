@@ -1,170 +1,233 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>Calendário de Reservas</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f8f9fa;
-      color: #333;
-      margin: 0;
+      max-width: 600px;
+      margin: 30px auto;
       padding: 20px;
-    }
-    .calendar-container {
-      max-width: 800px;
-      margin: 0 auto;
       background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      color: #333;
     }
-    h1 {
+    h2 {
       text-align: center;
     }
     .calendar {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 10px;
-      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-    .calendar div {
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+    th, td {
       text-align: center;
-      padding: 10px;
-      border-radius: 4px;
+      padding: 6px;
+      border: 1px solid #ccc;
+    }
+    td.disabled {
+      background-color: #eee;
+      color: #999;
+    }
+    td.available:hover {
+      background-color: #cce7ff;
       cursor: pointer;
     }
-    .past-date {
-      background-color: #e0e0e0;
-      color: #999;
-      cursor: not-allowed;
-    }
-    .available-date {
-      background-color: #fff;
-      border: 1px solid #ddd;
-    }
-    .available-date:hover {
+    td.selected {
       background-color: #007bff;
       color: white;
     }
-    .selected {
-      background-color: #28a745;
-      color: white;
-    }
-    .in-range {
-      background-color: #b3d7ff;
-    }
-    .summary {
-      margin-top: 20px;
+    .form-group {
+      margin: 10px 0;
     }
     button {
-      margin-top: 10px;
-      padding: 10px 20px;
-      background-color: #dc3545;
+      background-color: #007bff;
       color: white;
       border: none;
-      border-radius: 4px;
+      padding: 10px;
+      width: 100%;
+      font-size: 16px;
       cursor: pointer;
+      margin-top: 15px;
     }
-    button:hover {
-      background-color: #c82333;
+    select, input {
+      width: 100%;
+      padding: 6px;
+    }
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <div class="calendar-container">
-    <h1>Calendário de Reservas - Maio 2025</h1>
-    <div class="calendar" id="calendar"></div>
-    <div class="summary">
-      <p>Check-in: <span id="start-date"></span></p>
-      <p>Check-out: <span id="end-date"></span></p>
-      <p>Valor total: R$ <span id="total-price"></span></p>
-      <button onclick="resetSelection()">Limpar Seleção</button>
-    </div>
+  <h2>Calendário de Reservas</h2>
+
+  <div class="form-group">
+    <label>Hóspedes (máx. 12):</label>
+    <input type="number" id="hospedes" min="1" max="12" value="2">
   </div>
 
+  <div class="form-group">
+    <label>Pets:</label>
+    <input type="number" id="pets" min="0" value="0">
+  </div>
+
+  <div class="calendar">
+    <div class="nav">
+      <button onclick="prevMonth()">&#8592;</button>
+      <span id="monthYear"></span>
+      <button onclick="nextMonth()">&#8594;</button>
+    </div>
+    <table id="calendar"></table>
+  </div>
+
+  <div class="form-group">
+    <p><strong>Entrada:</strong> <span id="checkinDisplay">--</span></p>
+    <p><strong>Saída:</strong> <span id="checkoutDisplay">--</span></p>
+    <p><strong>Total:</strong> R$<span id="total">0</span> (<span id="noites">0</span> noites)</p>
+  </div>
+
+  <button onclick="clearSelection()">Limpar Seleção</button>
+  <button onclick="enviarWhatsApp()">RESERVAR</button>
+
   <script>
-    const dailyRate = 1900;
-    const petFee = 150;
-    const extraGuestFee = 150;
-    const maxGuestsIncluded = 10;
+    const precoBase = 1900;
+    const taxaHospedeExtra = 150;
+    const taxaPet = 150;
+    const calendario = document.getElementById("calendar");
+    const monthYear = document.getElementById("monthYear");
 
-    const today = new Date();
-    const year = 2025;
-    const month = 4; // Maio (0 indexado)
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let dataAtual = new Date();
+    let dataSelecionadaInicio = null;
+    let dataSelecionadaFim = null;
 
-    const calendar = document.getElementById("calendar");
-    let selectedStart = null;
-    let selectedEnd = null;
+    function renderCalendar() {
+      calendario.innerHTML = "";
+      const ano = dataAtual.getFullYear();
+      const mes = dataAtual.getMonth();
+      monthYear.innerText = new Date(ano, mes).toLocaleString("pt-BR", { month: "long", year: "numeric" });
 
-    function generateCalendar() {
-      calendar.innerHTML = "";
-      for (let day = 1; day <= daysInMonth; day++) {
-        const date = new Date(year, month, day);
-        const div = document.createElement("div");
-        div.innerText = day;
-        const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        div.className = isPast ? "past-date" : "available-date";
+      const primeiroDia = new Date(ano, mes, 1).getDay();
+      const diasNoMes = new Date(ano, mes + 1, 0).getDate();
 
-        if (!isPast) {
-          div.addEventListener("click", () => handleDateClick(day));
-        }
+      let html = "<tr>";
+      ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].forEach(d => html += `<th>${d}</th>`);
+      html += "</tr><tr>";
 
-        calendar.appendChild(div);
+      for (let i = 0; i < primeiroDia; i++) html += "<td></td>";
+
+      for (let dia = 1; dia <= diasNoMes; dia++) {
+        const data = new Date(ano, mes, dia);
+        const hoje = new Date();
+        hoje.setHours(0,0,0,0);
+        let classe = "available";
+        if (data < hoje) classe = "disabled";
+
+        html += `<td class="${classe}" data-date="${data.toISOString()}">${dia}</td>`;
+        if ((primeiroDia + dia) % 7 === 0) html += "</tr><tr>";
       }
-    }
 
-    function handleDateClick(day) {
-      if (!selectedStart || (selectedStart && selectedEnd)) {
-        selectedStart = day;
-        selectedEnd = null;
-      } else if (day > selectedStart) {
-        selectedEnd = day;
-        calculateTotal();
-      }
-      updateCalendarUI();
-    }
+      calendario.innerHTML = html;
 
-    function updateCalendarUI() {
-      const days = document.querySelectorAll(".calendar div");
-      days.forEach((div, index) => {
-        div.classList.remove("selected", "in-range");
-        const day = index + 1;
-        if (selectedStart === day) {
-          div.classList.add("selected");
-        } else if (selectedStart && selectedEnd && day > selectedStart && day < selectedEnd) {
-          div.classList.add("in-range");
-        } else if (selectedEnd === day) {
-          div.classList.add("selected");
-        }
+      document.querySelectorAll("td.available").forEach(td => {
+        td.onclick = () => selecionarData(new Date(td.dataset.date));
       });
-
-      document.getElementById("start-date").innerText = selectedStart ? `${selectedStart}/05/2025` : "";
-      document.getElementById("end-date").innerText = selectedEnd ? `${selectedEnd}/05/2025` : "";
     }
 
-    function calculateTotal() {
-      const nights = selectedEnd - selectedStart;
-      const numGuests = 12; // você pode adaptar com input futuramente
-      const numPets = 1; // idem
+    function selecionarData(data) {
+      if (!dataSelecionadaInicio || (dataSelecionadaInicio && dataSelecionadaFim)) {
+        dataSelecionadaInicio = data;
+        dataSelecionadaFim = null;
+      } else if (data > dataSelecionadaInicio) {
+        const dias = (data - dataSelecionadaInicio) / (1000 * 60 * 60 * 24);
+        if (dias < 2) {
+          alert("Estadia mínima de 2 noites.");
+          return;
+        }
+        dataSelecionadaFim = data;
+      }
 
-      const extraGuests = Math.max(0, numGuests - maxGuestsIncluded);
-      const total = (nights * dailyRate) + (extraGuests * extraGuestFee * nights) + (numPets * petFee);
-      document.getElementById("total-price").innerText = `${total.toFixed(2)} (média R$ ${(total / nights).toFixed(2)}/noite)`;
+      atualizarSelecao();
     }
 
-    function resetSelection() {
-      selectedStart = null;
-      selectedEnd = null;
-      document.getElementById("start-date").innerText = "";
-      document.getElementById("end-date").innerText = "";
-      document.getElementById("total-price").innerText = "";
-      updateCalendarUI();
+    function atualizarSelecao() {
+      document.querySelectorAll("td").forEach(td => td.classList.remove("selected"));
+      if (dataSelecionadaInicio) {
+        const inicio = new Date(dataSelecionadaInicio);
+        const fim = dataSelecionadaFim ? new Date(dataSelecionadaFim) : inicio;
+        document.querySelectorAll("td.available").forEach(td => {
+          const data = new Date(td.dataset.date);
+          if (data >= inicio && data <= fim) td.classList.add("selected");
+        });
+
+        document.getElementById("checkinDisplay").innerText = inicio.toLocaleDateString();
+        document.getElementById("checkoutDisplay").innerText = dataSelecionadaFim ? fim.toLocaleDateString() : "--";
+
+        calcularTotal();
+      }
     }
 
-    generateCalendar();
+    function calcularTotal() {
+      if (!dataSelecionadaInicio || !dataSelecionadaFim) return;
+
+      const dias = (dataSelecionadaFim - dataSelecionadaInicio) / (1000 * 60 * 60 * 24);
+      const hospedes = parseInt(document.getElementById("hospedes").value) || 0;
+      const pets = parseInt(document.getElementById("pets").value) || 0;
+
+      let total = precoBase * dias;
+      if (hospedes > 10) total += (hospedes - 10) * taxaHospedeExtra * dias;
+      total += pets * taxaPet;
+
+      document.getElementById("total").innerText = total.toLocaleString();
+      document.getElementById("noites").innerText = dias;
+    }
+
+    function clearSelection() {
+      dataSelecionadaInicio = null;
+      dataSelecionadaFim = null;
+      document.getElementById("checkinDisplay").innerText = "--";
+      document.getElementById("checkoutDisplay").innerText = "--";
+      document.getElementById("total").innerText = "0";
+      document.getElementById("noites").innerText = "0";
+      atualizarSelecao();
+    }
+
+    function prevMonth() {
+      dataAtual.setMonth(dataAtual.getMonth() - 1);
+      renderCalendar();
+      clearSelection();
+    }
+
+    function nextMonth() {
+      dataAtual.setMonth(dataAtual.getMonth() + 1);
+      renderCalendar();
+      clearSelection();
+    }
+
+    function enviarWhatsApp() {
+      if (!dataSelecionadaInicio || !dataSelecionadaFim) {
+        alert("Por favor, selecione check-in e check-out.");
+        return;
+      }
+
+      const checkin = dataSelecionadaInicio.toLocaleDateString();
+      const checkout = dataSelecionadaFim.toLocaleDateString();
+      const hospedes = document.getElementById("hospedes").value;
+      const pets = document.getElementById("pets").value;
+      const total = document.getElementById("total").innerText;
+
+      const msg = `Olá! Gostaria de reservar:\nCheck-in: ${checkin}\nCheck-out: ${checkout}\nHóspedes: ${hospedes}\nPets: ${pets}\nValor total: R$${total}`;
+      window.open(`https://wa.me/5511991120189?text=${encodeURIComponent(msg)}`);
+    }
+
+    renderCalendar();
   </script>
 </body>
 </html>
