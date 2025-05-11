@@ -1,145 +1,105 @@
-
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Calendário de Reservas</title>
-  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    h2 { margin-top: 0; }
-    .calendar { display: flex; flex-wrap: wrap; max-width: 700px; }
-    .day { width: 14.28%; padding: 10px; box-sizing: border-box; text-align: center; border: 1px solid #eee; cursor: pointer; }
-    .day.unavailable { background-color: #f8d7da; color: #721c24; cursor: not-allowed; }
-    .day.selected { background-color: #cce5ff; }
-    .summary { margin-top: 20px; font-size: 1.1em; }
+    body {
+      font-family: Arial, sans-serif;
+    }
+    .calendar-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 10px;
+    }
+    .calendar div {
+      text-align: center;
+      padding: 10px;
+      background: #f0f0f0;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .calendar div:hover {
+      background-color: #007bff;
+      color: white;
+    }
+    .selected {
+      background-color: #28a745;
+      color: white;
+    }
   </style>
 </head>
 <body>
+  <div class="calendar-container">
+    <h1>Calendário de Reservas</h1>
+    <p>Selecione as datas de entrada e saída.</p>
+    <div class="calendar" id="calendar"></div>
+    <div>
+      <p>Data de entrada: <span id="start-date"></span></p>
+      <p>Data de saída: <span id="end-date"></span></p>
+      <p>Total da estadia: R$ <span id="total-price"></span></p>
+    </div>
+  </div>
 
-<h2>Calendário de Reservas</h2>
-<div id="calendar" class="calendar"></div>
-<div class="summary" id="summary">Selecione as datas de entrada e saída.</div>
+  <script>
+    function generateCalendar() {
+      const daysInMonth = new Date(2025, 5, 0).getDate(); // Maio 2025
+      const calendar = document.getElementById('calendar');
+      calendar.innerHTML = '';
 
-<script>
-const sheetURL = "https://docs.google.com/spreadsheets/d/1v9LAVOAaf5jq3n3LSf4_cSaJCKcVKVkBg2A45o0IC_A/gviz/tq?tqx=out:json";
-let availableDates = {};
-let selectedStart = null;
-let selectedEnd = null;
-
-// Descontos por número de noites
-const discounts = {
-  3: 0.05,
-  4: 0.10,
-  7: 0.15
-};
-
-function parseGoogleSheetData(jsonText) {
-  const json = JSON.parse(jsonText.substr(47).slice(0, -2));
-  const rows = json.table.rows;
-  for (let row of rows) {
-    const date = row.c[0].f;
-    const price = parseFloat(row.c[1].v);
-    const available = row.c[2].v === true;
-    availableDates[date] = { price, available };
-  }
-  renderCalendar();
-}
-
-function renderCalendar() {
-  const calendar = document.getElementById("calendar");
-  const now = luxon.DateTime.local().startOf("month");
-  const daysInMonth = now.daysInMonth;
-  const monthStart = now.startOf("month").weekday % 7;
-
-  calendar.innerHTML = "";
-
-  for (let i = 0; i < monthStart; i++) {
-    const emptyCell = document.createElement("div");
-    emptyCell.className = "day";
-    calendar.appendChild(emptyCell);
-  }
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = now.set({ day }).toFormat("dd/LL/yyyy");
-    const div = document.createElement("div");
-    div.className = "day";
-    div.innerText = day;
-    if (!availableDates[date] || !availableDates[date].available) {
-      div.classList.add("unavailable");
-    } else {
-      div.onclick = () => handleSelectDate(date, div);
-    }
-    calendar.appendChild(div);
-  }
-}
-
-function handleSelectDate(date, div) {
-  if (!selectedStart) {
-    selectedStart = date;
-    div.classList.add("selected");
-  } else if (!selectedEnd) {
-    selectedEnd = date;
-    updateSelection();
-  } else {
-    selectedStart = date;
-    selectedEnd = null;
-    clearSelections();
-    div.classList.add("selected");
-  }
-}
-
-function clearSelections() {
-  document.querySelectorAll(".day").forEach(d => d.classList.remove("selected"));
-}
-
-function updateSelection() {
-  const start = luxon.DateTime.fromFormat(selectedStart, "dd/LL/yyyy");
-  const end = luxon.DateTime.fromFormat(selectedEnd, "dd/LL/yyyy");
-  if (end <= start) return;
-
-  clearSelections();
-  let cursor = start;
-  let nights = 0;
-  let total = 0;
-
-  while (cursor < end) {
-    const dateStr = cursor.toFormat("dd/LL/yyyy");
-    const divs = document.querySelectorAll(".day");
-    for (let d of divs) {
-      if (d.innerText == cursor.day && !d.classList.contains("unavailable")) {
-        d.classList.add("selected");
+      for (let i = 1; i <= daysInMonth; i++) {
+        const dayDiv = document.createElement('div');
+        dayDiv.innerText = i;
+        dayDiv.addEventListener('click', () => selectDate(i));
+        calendar.appendChild(dayDiv);
       }
     }
-    if (availableDates[dateStr] && availableDates[dateStr].available) {
-      total += availableDates[dateStr].price;
-      nights++;
-    } else {
-      document.getElementById("summary").innerText = "Período inclui data(s) indisponível(is).";
-      return;
+
+    let selectedStart = null;
+    let selectedEnd = null;
+
+    function selectDate(day) {
+      if (!selectedStart) {
+        selectedStart = day;
+        document.getElementById('start-date').innerText = `${day}/05/2025`;
+      } else if (!selectedEnd && day > selectedStart) {
+        selectedEnd = day;
+        document.getElementById('end-date').innerText = `${day}/05/2025`;
+        calculateTotal();
+      }
+
+      updateCalendar();
     }
-    cursor = cursor.plus({ days: 1 });
-  }
 
-  let discount = 0;
-  for (let nightsReq in discounts) {
-    if (nights >= nightsReq) discount = discounts[nightsReq];
-  }
-  const finalTotal = total * (1 - discount);
-  const avg = finalTotal / nights;
+    function updateCalendar() {
+      const days = document.querySelectorAll('.calendar div');
+      days.forEach(day => day.classList.remove('selected'));
 
-  document.getElementById("summary").innerText =
-    `De ${selectedStart} até ${selectedEnd} • ${nights} noites
-` +
-    `Total: R$${finalTotal.toFixed(2)} (${discount * 100}% de desconto)
-` +
-    `Média por noite: R$${avg.toFixed(2)}`;
-}
+      if (selectedStart) {
+        const startDiv = days[selectedStart - 1];
+        startDiv.classList.add('selected');
+      }
+      if (selectedEnd) {
+        const endDiv = days[selectedEnd - 1];
+        endDiv.classList.add('selected');
+      }
+    }
 
-fetch(sheetURL)
-  .then(res => res.text())
-  .then(parseGoogleSheetData);
-</script>
+    function calculateTotal() {
+      if (selectedStart && selectedEnd) {
+        const totalDays = selectedEnd - selectedStart + 1;
+        const dailyRate = 1900; // Valor da diária
+        const totalPrice = totalDays * dailyRate;
+        document.getElementById('total-price').innerText = totalPrice.toFixed(2);
+      }
+    }
 
+    generateCalendar();
+  </script>
 </body>
 </html>
