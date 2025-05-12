@@ -219,6 +219,12 @@
         dateCell.classList.add('date-cell');
         dateCell.innerText = day;
 
+        // Bloqueia datas passadas
+        if (date < new Date()) {
+          dateCell.classList.add('disabled');
+          dateCell.style.pointerEvents = 'none'; // Impede a seleção
+        }
+
         // Marca as datas como disponíveis ou não
         if (availableDates[formatDate(date)] === false) {
           dateCell.classList.add('disabled');
@@ -239,6 +245,9 @@
 
     // Função para navegar entre os meses
     function navigateMonth(offset) {
+      const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset);
+      if (newMonth > new Date(2025, 11, 31)) return; // Impede navegação após dezembro de 2025
+      if (newMonth < new Date()) return; // Impede navegação para meses passados
       currentMonth.setMonth(currentMonth.getMonth() + offset);
       generateCalendar();
     }
@@ -270,38 +279,46 @@
       const totalNights = selectedEndDate && selectedStartDate ? (selectedEndDate - selectedStartDate) / (1000 * 3600 * 24) : 0;
       const extraGuests = guests > 10 ? (guests - 10) * extraGuestFee : 0;
       const petFeeTotal = pets > 0 ? petFee : 0;
-      const totalAmount = totalNights * 150 + extraGuests + petFeeTotal; // R$150 é o valor base por diária
+      const dailyRate = 150; // R$150 é o valor base por diária
+      const totalAmount = totalNights * dailyRate + extraGuests + petFeeTotal; // Soma as diárias, taxas extras
 
       summaryElement.innerHTML = `
         <strong>Período:</strong> ${selectedStartDate ? formatDate(selectedStartDate) : '-'} a ${selectedEndDate ? formatDate(selectedEndDate) : '-'}<br>
         <strong>Hóspedes:</strong> ${guests} <br>
         <strong>Pets:</strong> ${pets} <br>
-        <strong>Total:</strong> R$${totalAmount.toFixed(2)}<br>
+        <strong>Total:</strong> R$ ${totalAmount.toFixed(2)} <br>
+        <strong>Valor por noite:</strong> R$ ${totalAmount / totalNights ? (totalAmount / totalNights).toFixed(2) : 0} <br>
       `;
-
-      clearSelectionButton.style.display = 'block';
     }
 
-    // Função para limpar a seleção
-    clearSelectionButton.addEventListener('click', () => {
+    // Função para limpar a seleção de datas
+    function clearSelection() {
       selectedStartDate = null;
       selectedEndDate = null;
       generateCalendar();
       updateSummary();
-    });
+    }
 
-    // Função para reservar
-    reserveButton.addEventListener('click', () => {
-      if (selectedStartDate && selectedEndDate) {
-        alert('Reserva Confirmada!');
-      } else {
-        alert('Por favor, selecione o período.');
-      }
-    });
+    // Adiciona o evento de limpar
+    clearSelectionButton.addEventListener('click', clearSelection);
 
-    // Inicializa o calendário
+    // Adiciona os eventos de navegação do mês
     document.getElementById('prevMonth').addEventListener('click', () => navigateMonth(-1));
     document.getElementById('nextMonth').addEventListener('click', () => navigateMonth(1));
+
+    // Adiciona o evento para o botão de reserva
+    reserveButton.addEventListener('click', () => {
+      const message = `Reserva confirmada!<br>
+      Período: ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}<br>
+      Hóspedes: ${guestsInput.value} <br>
+      Pets: ${petsInput.value}<br>
+      Total: R$ ${parseFloat(summaryElement.innerText.split('R$ ')[1].split(' ')[0]).toFixed(2)} <br>
+      <br> Aguardamos sua chegada!`;
+
+      window.location.href = `https://wa.me/5511991120189?text=${encodeURIComponent(message)}`;
+    });
+
+    // Atualiza o calendário quando a página for carregada
     generateCalendar();
   </script>
 </body>
