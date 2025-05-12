@@ -2,19 +2,18 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Calendário de Reservas</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
   <style>
     body {
       font-family: 'Inter', sans-serif;
       background: #f9f9f9;
       margin: 0;
-      padding: 0;
+      padding: 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 20px;
       color: #333;
     }
 
@@ -83,7 +82,7 @@
     }
 
     .disabled {
-      background-color: #f0f0f0;
+      background-color: #f0f0f0 !important;
       color: #aaa;
       pointer-events: none;
     }
@@ -153,7 +152,7 @@
     <button class="action-btn clear-btn" id="clearSelection">Limpar seleção</button>
     <div class="header">
       <button class="nav-btn" id="prevMonth">&#x276E;</button>
-      <div class="month-title" id="monthTitle">Maio 2025</div>
+      <div class="month-title" id="monthTitle">Carregando...</div>
       <button class="nav-btn" id="nextMonth">&#x276F;</button>
     </div>
     <div class="calendar-grid" id="calendarDays"></div>
@@ -168,17 +167,18 @@
   </div>
 
   <script>
-    // Variáveis globais
     const maxGuests = 12;
     const maxPets = 2;
     const petFee = 150;
     const extraGuestFee = 150;
+    const dailyRate = 150;
+
     let selectedStartDate = null;
     let selectedEndDate = null;
     let currentMonth = new Date();
+    const today = new Date();
     let availableDates = {};
 
-    // Elementos do DOM
     const monthTitle = document.getElementById('monthTitle');
     const calendarDays = document.getElementById('calendarDays');
     const clearSelectionButton = document.getElementById('clearSelection');
@@ -187,7 +187,6 @@
     const petsInput = document.getElementById('pets');
     const summaryElement = document.getElementById('summary');
 
-    // Função para formatar a data no formato "dd/mm/yyyy"
     function formatDate(date) {
       const day = String(date.getDate()).padStart(2, '0');
       const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -195,85 +194,129 @@
       return `${day}/${month}/${year}`;
     }
 
-    // Função para gerar o calendário
     function generateCalendar() {
-      const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-      const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-
-      // Atualiza o título do mês
-      monthTitle.innerText = `${firstDayOfMonth.toLocaleString('pt-BR', { month: 'long' })} ${currentMonth.getFullYear()}`;
-
-      // Preenche as células de dias do calendário
+      const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      monthTitle.innerText = `${firstDay.toLocaleString('pt-BR', { month: 'long' })} ${currentMonth.getFullYear()}`;
       calendarDays.innerHTML = '';
 
-      // Preenche os dias da semana
-      const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-      daysOfWeek.forEach(day => {
-        const dayCell = document.createElement('div');
-        dayCell.classList.add('day');
-        dayCell.innerText = day;
-        calendarDays.appendChild(dayCell);
+      // Dias da semana
+      const weekdays = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+      weekdays.forEach(day => {
+        const el = document.createElement('div');
+        el.innerText = day;
+        el.classList.add('day');
+        calendarDays.appendChild(el);
       });
 
-      // Preenche os dias anteriores ao primeiro dia do mês
-      for (let i = 0; i < firstDayOfMonth.getDay(); i++) {
-        const emptyCell = document.createElement('div');
-        calendarDays.appendChild(emptyCell);
+      // Espaço para início do mês
+      for (let i = 0; i < firstDay.getDay(); i++) {
+        const empty = document.createElement('div');
+        calendarDays.appendChild(empty);
       }
 
-      // Preenche os dias do mês
-      for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
+      for (let day = 1; day <= lastDay.getDate(); day++) {
         const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-        const dateCell = document.createElement('div');
-        dateCell.classList.add('date-cell');
-        dateCell.innerText = day;
+        const formatted = formatDate(date);
+        const cell = document.createElement('div');
+        cell.classList.add('date-cell');
+        cell.innerText = day;
 
-        const formattedDate = formatDate(date);
-
-        // Bloqueia datas passadas
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (date < today) {
-          dateCell.classList.add('disabled');
+        if (
+          date < today.setHours(0,0,0,0) ||
+          currentMonth.getFullYear() > 2025 ||
+          (currentMonth.getFullYear() === 2025 && currentMonth.getMonth() > 11) ||
+          availableDates[formatted] === false
+        ) {
+          cell.classList.add('disabled');
         }
 
-        // Marca as datas como disponíveis ou não
-        if (availableDates[formattedDate] === false) {
-          dateCell.classList.add('disabled');
+        if (selectedStartDate && selectedEndDate && date >= selectedStartDate && date <= selectedEndDate) {
+          cell.classList.add('selected-range');
         }
 
-        // Destaca as datas selecionadas
-        if (selectedStartDate && selectedEndDate) {
-          if (date >= selectedStartDate && date <= selectedEndDate) {
-            dateCell.classList.add('selected-range');
-          }
-        }
-
-        // Adiciona evento de clique
-        dateCell.addEventListener('click', () => handleDateSelection(date));
-        calendarDays.appendChild(dateCell);
+        cell.addEventListener('click', () => handleDateSelection(date));
+        calendarDays.appendChild(cell);
       }
     }
 
-    // Função para navegar entre os meses
-    function navigateMonth(offset) {
-      const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1);
-      const maxMonth = new Date(2025, 11, 31); // Dezembro de 2025
-
-      if (newMonth > maxMonth) return;
-
-      currentMonth = newMonth;
-      generateCalendar();
-    }
-
-    // Função para lidar com a seleção de datas
     function handleDateSelection(date) {
-      const formattedDate = formatDate(date);
-      if (availableDates[formattedDate] === false) return; // Se a data não for disponível, não faz nada
+      if (
+        date < today.setHours(0,0,0,0) ||
+        currentMonth.getFullYear() > 2025 ||
+        (currentMonth.getFullYear() === 2025 && currentMonth.getMonth() > 11) ||
+        availableDates[formatDate(date)] === false
+      ) return;
 
       if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
         selectedStartDate = date;
-        selectedEndDate = null; // Reseta a data final se a inicial for alterada
-      } else if (selectedStartDate && !selectedEndDate
-::contentReference[oaicite:20]{index=20}
- 
+        selectedEndDate = null;
+      } else if (selectedStartDate && !selectedEndDate) {
+        if (date < selectedStartDate) {
+          selectedEndDate = selectedStartDate;
+          selectedStartDate = date;
+        } else {
+          selectedEndDate = date;
+        }
+      }
+
+      generateCalendar();
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const guests = parseInt(guestsInput.value);
+      const pets = parseInt(petsInput.value);
+      const nights = selectedEndDate && selectedStartDate ? (selectedEndDate - selectedStartDate) / (1000 * 3600 * 24) : 0;
+      const extras = guests > 10 ? (guests - 10) * extraGuestFee : 0;
+      const petExtras = pets > 0 ? petFee : 0;
+      const total = nights * dailyRate + extras + petExtras;
+
+      summaryElement.innerHTML = `
+        <strong>Período:</strong> ${selectedStartDate ? formatDate(selectedStartDate) : '-'} a ${selectedEndDate ? formatDate(selectedEndDate) : '-'}<br>
+        <strong>Hóspedes:</strong> ${guests} <br>
+        <strong>Pets:</strong> ${pets} <br>
+        <strong>Total:</strong> R$${total.toFixed(2)}<br>
+      `;
+      clearSelectionButton.style.display = 'block';
+    }
+
+    clearSelectionButton.addEventListener('click', () => {
+      selectedStartDate = null;
+      selectedEndDate = null;
+      generateCalendar();
+      updateSummary();
+    });
+
+    reserveButton.addEventListener('click', () => {
+      if (selectedStartDate && selectedEndDate) {
+        alert('Reserva Confirmada!');
+      } else {
+        alert('Por favor, selecione o período.');
+      }
+    });
+
+    document.getElementById('prevMonth').addEventListener('click', () => {
+      currentMonth.setMonth(currentMonth.getMonth() - 1);
+      generateCalendar();
+    });
+
+    document.getElementById('nextMonth').addEventListener('click', () => {
+      currentMonth.setMonth(currentMonth.getMonth() + 1);
+      generateCalendar();
+    });
+
+    // 🔄 INTEGRAÇÃO COM GOOGLE SHEETS
+    fetch('https://opensheet.elk.sh/2PACX-1vRbZUZD_RuGjPaw7LhV1bJzQT0tX7vndih4VuOlm4pEJ6LktEgiyL7p-fiXh2iewxX3-WpqkB4iaFIL/disponível')
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(row => {
+          if (row['Data'] && row['Disponível']?.toLowerCase().trim() === 'não') {
+            availableDates[row['Data'].trim()] = false;
+          }
+        });
+        generateCalendar(); // ✅ Só gera o calendário quando os dados estiverem prontos
+      });
+  </script>
+</body>
+</html>
