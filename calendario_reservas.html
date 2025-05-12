@@ -176,7 +176,8 @@
     let selectedStartDate = null;
     let selectedEndDate = null;
     let currentMonth = new Date();
-    let availableDates = {}; // Aqui você pode integrar as datas do Google Sheets ou Beyond Pricing
+    let availableDates = {}; // Datas disponíveis
+    let dailyRates = {}; // Tarifas diárias
 
     // Elementos do DOM
     const monthTitle = document.getElementById('monthTitle');
@@ -186,7 +187,7 @@
     const guestsInput = document.getElementById('guests');
     const petsInput = document.getElementById('pets');
     const summaryElement = document.getElementById('summary');
-    
+
     // Função para formatar a data no formato "dd/mm/yyyy"
     function formatDate(date) {
       const day = String(date.getDate()).padStart(2, '0');
@@ -195,16 +196,35 @@
       return `${day}/${month}/${year}`;
     }
 
+    // Função para formatar a data no formato "yyyy-mm-dd"
+    function formatDateISO(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
     // Função para gerar o calendário
     function generateCalendar() {
       const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
       const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-      
+      const today = new Date();
+      const maxDate = new Date(2025, 11, 31); // 31 de dezembro de 2025
+
       // Atualiza o título do mês
       monthTitle.innerText = `${firstDayOfMonth.toLocaleString('pt-BR', { month: 'long' })} ${currentMonth.getFullYear()}`;
-      
+
       // Preenche as células de dias do calendário
       calendarDays.innerHTML = '';
+
+      // Preenche os dias da semana
+      const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      for (let day of daysOfWeek) {
+        const dayCell = document.createElement('div');
+        dayCell.classList.add('day');
+        dayCell.innerText = day;
+        calendarDays.appendChild(dayCell);
+      }
 
       // Preenche os dias anteriores ao primeiro dia do mês
       for (let i = 0; i < firstDayOfMonth.getDay(); i++) {
@@ -219,8 +239,15 @@
         dateCell.classList.add('date-cell');
         dateCell.innerText = day;
 
-        // Marca as datas como disponíveis ou não
-        if (availableDates[formatDate(date)] === false) {
+        const dateKey = formatDateISO(date);
+
+        // Desabilita datas passadas
+        if (date < today) {
+          dateCell.classList.add('disabled');
+        }
+
+        // Desabilita datas indisponíveis
+        if (availableDates[dateKey] === false) {
           dateCell.classList.add('disabled');
         }
 
@@ -239,70 +266,20 @@
 
     // Função para navegar entre os meses
     function navigateMonth(offset) {
-      currentMonth.setMonth(currentMonth.getMonth() + offset);
+      const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1);
+      const maxMonth = new Date(2025, 11, 31); // 31 de dezembro de 2025
+
+      if (newMonth > maxMonth) return;
+
+      currentMonth = newMonth;
       generateCalendar();
     }
 
     // Função para lidar com a seleção de datas
     function handleDateSelection(date) {
-      if (availableDates[formatDate(date)] === false) return; // Se a data não for disponível, não faz nada
+      const dateKey = formatDateISO(date);
+      const today = new Date();
 
-      if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
-        selectedStartDate = date;
-        selectedEndDate = null; // Reseta a data final se a inicial for alterada
-      } else if (selectedStartDate && !selectedEndDate) {
-        if (date < selectedStartDate) {
-          selectedEndDate = selectedStartDate;
-          selectedStartDate = date;
-        } else {
-          selectedEndDate = date;
-        }
-      }
-
-      generateCalendar();
-      updateSummary();
-    }
-
-    // Função para atualizar o resumo com valores e detalhes
-    function updateSummary() {
-      const guests = parseInt(guestsInput.value);
-      const pets = parseInt(petsInput.value);
-      const totalNights = selectedEndDate && selectedStartDate ? (selectedEndDate - selectedStartDate) / (1000 * 3600 * 24) : 0;
-      const extraGuests = guests > 10 ? (guests - 10) * extraGuestFee : 0;
-      const petFeeTotal = pets > 0 ? petFee : 0;
-      const totalAmount = totalNights * 150 + extraGuests + petFeeTotal; // R$150 é o valor base por diária
-
-      summaryElement.innerHTML = `
-        <strong>Período:</strong> ${selectedStartDate ? formatDate(selectedStartDate) : '-'} a ${selectedEndDate ? formatDate(selectedEndDate) : '-'}<br>
-        <strong>Hóspedes:</strong> ${guests} <br>
-        <strong>Pets:</strong> ${pets} <br>
-        <strong>Total:</strong> R$${totalAmount.toFixed(2)}<br>
-      `;
-
-      clearSelectionButton.style.display = 'block';
-    }
-
-    // Função para limpar a seleção
-    clearSelectionButton.addEventListener('click', () => {
-      selectedStartDate = null;
-      selectedEndDate = null;
-      generateCalendar();
-      updateSummary();
-    });
-
-    // Função para reservar
-    reserveButton.addEventListener('click', () => {
-      if (selectedStartDate && selectedEndDate) {
-        alert('Reserva Confirmada!');
-      } else {
-        alert('Por favor, selecione o período.');
-      }
-    });
-
-    // Inicializa o calendário
-    document.getElementById('prevMonth').addEventListener('click', () => navigateMonth(-1));
-    document.getElementById('nextMonth').addEventListener('click', () => navigateMonth(1));
-    generateCalendar();
-  </script>
-</body>
-</html>
+      if (availableDates[dateKey] === false
+::contentReference[oaicite:16]{index=16}
+ 
