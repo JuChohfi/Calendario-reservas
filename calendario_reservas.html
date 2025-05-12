@@ -168,8 +168,141 @@
   </div>
 
   <script>
-    // Aqui entra o script do calendário (mantido fora do HTML por clareza neste exemplo).
-    // Quando você estiver pronta, posso inserir o script JS completo para você copiar junto com este HTML.
+    // Variáveis globais
+    const maxGuests = 12;
+    const maxPets = 2;
+    const petFee = 150;
+    const extraGuestFee = 150;
+    let selectedStartDate = null;
+    let selectedEndDate = null;
+    let currentMonth = new Date();
+    let availableDates = {}; // Aqui você pode integrar as datas do Google Sheets ou Beyond Pricing
+
+    // Elementos do DOM
+    const monthTitle = document.getElementById('monthTitle');
+    const calendarDays = document.getElementById('calendarDays');
+    const clearSelectionButton = document.getElementById('clearSelection');
+    const reserveButton = document.getElementById('reserveBtn');
+    const guestsInput = document.getElementById('guests');
+    const petsInput = document.getElementById('pets');
+    const summaryElement = document.getElementById('summary');
+    
+    // Função para formatar a data no formato "dd/mm/yyyy"
+    function formatDate(date) {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+
+    // Função para gerar o calendário
+    function generateCalendar() {
+      const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      
+      // Atualiza o título do mês
+      monthTitle.innerText = `${firstDayOfMonth.toLocaleString('pt-BR', { month: 'long' })} ${currentMonth.getFullYear()}`;
+      
+      // Preenche as células de dias do calendário
+      calendarDays.innerHTML = '';
+
+      // Preenche os dias anteriores ao primeiro dia do mês
+      for (let i = 0; i < firstDayOfMonth.getDay(); i++) {
+        const emptyCell = document.createElement('div');
+        calendarDays.appendChild(emptyCell);
+      }
+
+      // Preenche os dias do mês
+      for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
+        const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+        const dateCell = document.createElement('div');
+        dateCell.classList.add('date-cell');
+        dateCell.innerText = day;
+
+        // Marca as datas como disponíveis ou não
+        if (availableDates[formatDate(date)] === false) {
+          dateCell.classList.add('disabled');
+        }
+
+        // Destaca as datas selecionadas
+        if (selectedStartDate && selectedEndDate) {
+          if (date >= selectedStartDate && date <= selectedEndDate) {
+            dateCell.classList.add('selected-range');
+          }
+        }
+
+        // Adiciona evento de clique
+        dateCell.addEventListener('click', () => handleDateSelection(date));
+        calendarDays.appendChild(dateCell);
+      }
+    }
+
+    // Função para navegar entre os meses
+    function navigateMonth(offset) {
+      currentMonth.setMonth(currentMonth.getMonth() + offset);
+      generateCalendar();
+    }
+
+    // Função para lidar com a seleção de datas
+    function handleDateSelection(date) {
+      if (availableDates[formatDate(date)] === false) return; // Se a data não for disponível, não faz nada
+
+      if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
+        selectedStartDate = date;
+        selectedEndDate = null; // Reseta a data final se a inicial for alterada
+      } else if (selectedStartDate && !selectedEndDate) {
+        if (date < selectedStartDate) {
+          selectedEndDate = selectedStartDate;
+          selectedStartDate = date;
+        } else {
+          selectedEndDate = date;
+        }
+      }
+
+      generateCalendar();
+      updateSummary();
+    }
+
+    // Função para atualizar o resumo com valores e detalhes
+    function updateSummary() {
+      const guests = parseInt(guestsInput.value);
+      const pets = parseInt(petsInput.value);
+      const totalNights = selectedEndDate && selectedStartDate ? (selectedEndDate - selectedStartDate) / (1000 * 3600 * 24) : 0;
+      const extraGuests = guests > 10 ? (guests - 10) * extraGuestFee : 0;
+      const petFeeTotal = pets > 0 ? petFee : 0;
+      const totalAmount = totalNights * 150 + extraGuests + petFeeTotal; // R$150 é o valor base por diária
+
+      summaryElement.innerHTML = `
+        <strong>Período:</strong> ${selectedStartDate ? formatDate(selectedStartDate) : '-'} a ${selectedEndDate ? formatDate(selectedEndDate) : '-'}<br>
+        <strong>Hóspedes:</strong> ${guests} <br>
+        <strong>Pets:</strong> ${pets} <br>
+        <strong>Total:</strong> R$${totalAmount.toFixed(2)}<br>
+      `;
+
+      clearSelectionButton.style.display = 'block';
+    }
+
+    // Função para limpar a seleção
+    clearSelectionButton.addEventListener('click', () => {
+      selectedStartDate = null;
+      selectedEndDate = null;
+      generateCalendar();
+      updateSummary();
+    });
+
+    // Função para reservar
+    reserveButton.addEventListener('click', () => {
+      if (selectedStartDate && selectedEndDate) {
+        alert('Reserva Confirmada!');
+      } else {
+        alert('Por favor, selecione o período.');
+      }
+    });
+
+    // Inicializa o calendário
+    document.getElementById('prevMonth').addEventListener('click', () => navigateMonth(-1));
+    document.getElementById('nextMonth').addEventListener('click', () => navigateMonth(1));
+    generateCalendar();
   </script>
 </body>
 </html>
