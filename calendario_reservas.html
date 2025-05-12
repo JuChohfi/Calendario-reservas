@@ -5,16 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calendário de Reservas</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; max-width: 400px; }
-    .day { padding: 10px; border: 1px solid #ccc; text-align: center; border-radius: 5px; cursor: pointer; }
-    .unavailable { background-color: #f8d7da; color: #721c24; pointer-events: none; }
-    .selected { background-color: #c3e6cb; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      max-width: 420px;
+      margin-bottom: 20px;
+    }
+    .day {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: center;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .unavailable {
+      background-color: #f8d7da;
+      color: #721c24;
+      pointer-events: none;
+    }
+    .selected {
+      background-color: #c3e6cb;
+    }
   </style>
 </head>
 <body>
   <h1>Calendário de Reservas</h1>
-  <div id="calendar"></div>
+  <div id="calendar" class="calendar"></div>
   <p>Valor total: R$ <span id="total">0,00</span></p>
 
   <script>
@@ -29,17 +50,21 @@
     let selectedDates = [];
 
     async function fetchAvailability() {
-      const res = await fetch(apiUrl);
-      const text = await res.text();
-      const json = JSON.parse(text.substr(47).slice(0, -2));
-      const rows = json.table.rows;
-      rows.forEach(row => {
-        const date = row.c[0]?.v; // formato: "2025-05-11"
-        const price = parseFloat(row.c[1]?.v) || 0;
-        const available = row.c[2]?.v?.toLowerCase() === 'sim';
-        const discount = parseFloat(row.c[3]?.v) || 0;
-        availabilityMap[date] = { price, available, discount };
-      });
+      try {
+        const res = await fetch(apiUrl);
+        const text = await res.text();
+        const json = JSON.parse(text.substr(47).slice(0, -2));
+        const rows = json.table.rows;
+        rows.forEach(row => {
+          const date = row.c[0]?.v;
+          const price = parseFloat(row.c[1]?.v) || 0;
+          const available = row.c[2]?.v?.toLowerCase() === 'sim';
+          const discount = parseFloat(row.c[3]?.v) || 0;
+          availabilityMap[date] = { price, available, discount };
+        });
+      } catch (e) {
+        console.error('Erro ao carregar dados da planilha:', e);
+      }
     }
 
     function createCalendar(month, year) {
@@ -49,8 +74,10 @@
       const today = new Date();
       const maxDate = new Date('2025-12-31');
 
+      // Preenche espaços vazios antes do primeiro dia do mês
       for (let i = 0; i < firstDay.getDay(); i++) {
-        calendarEl.innerHTML += '<div></div>';
+        const spacer = document.createElement('div');
+        calendarEl.appendChild(spacer);
       }
 
       for (let d = 1; d <= lastDay.getDate(); d++) {
