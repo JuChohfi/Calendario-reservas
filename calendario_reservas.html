@@ -4,322 +4,104 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calendário de Reservas</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
   <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background: #f9f9f9;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      color: #333;
-    }
-
-    .calendar-container {
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-      padding: 20px;
-      max-width: 360px;
-      width: 100%;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .month-title {
-      font-weight: 600;
-      font-size: 1.1rem;
-      letter-spacing: 0.5px;
-    }
-
-    .nav-btn {
-      background: none;
-      border: none;
-      font-size: 1rem;
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 6px;
-      color: #006d45;
-    }
-
-    .nav-btn:hover {
-      background-color: #e0f2ea;
-    }
-
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 6px;
-      margin-top: 10px;
-    }
-
-    .day, .date-cell {
-      text-align: center;
-      font-size: 0.9rem;
-      padding: 6px 0;
-    }
-
-    .day {
-      font-weight: 600;
-      color: #006d45;
-    }
-
-    .date-cell {
-      border-radius: 8px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    .date-cell:hover {
-      background-color: #e0f2ea;
-    }
-
-    .disabled {
-      background-color: #f0f0f0;
-      color: #aaa;
-      pointer-events: none;
-    }
-
-    .selected-range {
-      background-color: #b7e2d0;
-    }
-
-    .controls {
-      margin-top: 16px;
-      text-align: center;
-    }
-
-    .action-btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .clear-btn {
-      color: #006d45;
-      background: none;
-      font-size: 0.9rem;
-      margin-bottom: 8px;
-      display: none;
-    }
-
-    .reserve-btn {
-      background-color: #006d45;
-      color: white;
-      font-size: 1rem;
-      margin-top: 10px;
-    }
-
-    .inputs {
-      margin-top: 16px;
-      text-align: left;
-      font-size: 0.9rem;
-    }
-
-    .inputs label {
-      display: block;
-      margin-top: 8px;
-    }
-
-    .inline-inputs {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .inline-inputs input {
-      width: 48px;
-      text-align: center;
-    }
-
-    .summary {
-      margin-top: 16px;
-      font-size: 0.95rem;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; max-width: 400px; }
+    .day { padding: 10px; border: 1px solid #ccc; text-align: center; border-radius: 5px; cursor: pointer; }
+    .unavailable { background-color: #f8d7da; color: #721c24; pointer-events: none; }
+    .selected { background-color: #c3e6cb; }
   </style>
 </head>
 <body>
-  <div class="calendar-container">
-    <button class="action-btn clear-btn" id="clearSelection">Limpar seleção</button>
-    <div class="header">
-      <button class="nav-btn" id="prevMonth">&#x276E;</button>
-      <div class="month-title" id="monthTitle">Maio 2025</div>
-      <button class="nav-btn" id="nextMonth">&#x276F;</button>
-    </div>
-    <div class="calendar-grid" id="calendarDays"></div>
-    <div class="inputs">
-      <label>Hóspedes (máx. 12): <input type="number" id="guests" min="1" max="12" value="2"></label>
-      <label>Pets (máx. 2): <input type="number" id="pets" min="0" max="2" value="0"></label>
-    </div>
-    <div class="summary" id="summary"></div>
-    <div class="controls">
-      <button class="action-btn reserve-btn" id="reserveBtn">Reservar</button>
-    </div>
-  </div>
+  <h1>Calendário de Reservas</h1>
+  <div id="calendar"></div>
+  <p>Valor total: R$ <span id="total"></span></p>
 
   <script>
-    // Variáveis globais
-    const maxGuests = 12;
-    const maxPets = 2;
-    const petFee = 150;
-    const extraGuestFee = 150;
-    let selectedStartDate = null;
-    let selectedEndDate = null;
-    let currentMonth = new Date();
-    let availableDates = {}; // Aqui você pode integrar as datas do Google Sheets ou Beyond Pricing
+    const spreadsheetId = '1v9LAVOAaf5jq3n3LSf4_cSaJCKcVKVkBg2A45o0IC_A';
+    const sheetName = 'disponível';
+    const apiUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}`;
 
-    // Elementos do DOM
-    const monthTitle = document.getElementById('monthTitle');
-    const calendarDays = document.getElementById('calendarDays');
-    const clearSelectionButton = document.getElementById('clearSelection');
-    const reserveButton = document.getElementById('reserveBtn');
-    const guestsInput = document.getElementById('guests');
-    const petsInput = document.getElementById('pets');
-    const summaryElement = document.getElementById('summary');
-    
-    // Função para formatar a data no formato "dd/mm/yyyy"
-    function formatDate(date) {
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
+    const calendarEl = document.getElementById('calendar');
+    const totalEl = document.getElementById('total');
+
+    let availabilityMap = {}; // { '2025-05-11': { price: 1900, available: true } }
+    let selectedDates = [];
+
+    async function fetchAvailability() {
+      const res = await fetch(apiUrl);
+      const text = await res.text();
+      const json = JSON.parse(text.substr(47).slice(0, -2));
+      const rows = json.table.rows;
+      rows.forEach(row => {
+        const date = row.c[0]?.v; // formato: "2025-05-11"
+        const price = parseFloat(row.c[1]?.v) || 0;
+        const available = row.c[2]?.v?.toLowerCase() === 'sim';
+        availabilityMap[date] = { price, available };
+      });
     }
 
-    // Função para gerar o calendário
-    function generateCalendar() {
-      const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-      const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-      
-      // Atualiza o título do mês
-      monthTitle.innerText = `${firstDayOfMonth.toLocaleString('pt-BR', { month: 'long' })} ${currentMonth.getFullYear()}`;
-      
-      // Preenche as células de dias do calendário
-      calendarDays.innerHTML = '';
+    function createCalendar(month, year) {
+      calendarEl.innerHTML = '';
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const today = new Date();
+      const maxDate = new Date('2025-12-31');
 
-      // Preenche os dias anteriores ao primeiro dia do mês
-      for (let i = 0; i < firstDayOfMonth.getDay(); i++) {
-        const emptyCell = document.createElement('div');
-        calendarDays.appendChild(emptyCell);
+      for (let i = 0; i < firstDay.getDay(); i++) {
+        calendarEl.innerHTML += '<div></div>';
       }
 
-      // Preenche os dias do mês
-      for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
-        const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-        const dateCell = document.createElement('div');
-        dateCell.classList.add('date-cell');
-        dateCell.innerText = day;
+      for (let d = 1; d <= lastDay.getDate(); d++) {
+        const date = new Date(year, month, d);
+        const dateStr = date.toISOString().split('T')[0];
+        const isPast = date < new Date(today.toDateString());
+        const isFutureLimit = date > maxDate;
+        const data = availabilityMap[dateStr] || {};
 
-        // Bloqueia datas passadas
-        if (date < new Date()) {
-          dateCell.classList.add('disabled');
-          dateCell.style.pointerEvents = 'none'; // Impede a seleção
-        }
+        const div = document.createElement('div');
+        div.classList.add('day');
+        div.textContent = d;
 
-        // Marca as datas como disponíveis ou não
-        if (availableDates[formatDate(date)] === false) {
-          dateCell.classList.add('disabled');
-        }
-
-        // Destaca as datas selecionadas
-        if (selectedStartDate && selectedEndDate) {
-          if (date >= selectedStartDate && date <= selectedEndDate) {
-            dateCell.classList.add('selected-range');
-          }
-        }
-
-        // Adiciona evento de clique
-        dateCell.addEventListener('click', () => handleDateSelection(date));
-        calendarDays.appendChild(dateCell);
-      }
-    }
-
-    // Função para navegar entre os meses
-    function navigateMonth(offset) {
-      const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset);
-      if (newMonth > new Date(2025, 11, 31)) return; // Impede navegação após dezembro de 2025
-      if (newMonth < new Date()) return; // Impede navegação para meses passados
-      currentMonth.setMonth(currentMonth.getMonth() + offset);
-      generateCalendar();
-    }
-
-    // Função para lidar com a seleção de datas
-    function handleDateSelection(date) {
-      if (availableDates[formatDate(date)] === false) return; // Se a data não for disponível, não faz nada
-
-      if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
-        selectedStartDate = date;
-        selectedEndDate = null; // Reseta a data final se a inicial for alterada
-      } else if (selectedStartDate && !selectedEndDate) {
-        if (date < selectedStartDate) {
-          selectedEndDate = selectedStartDate;
-          selectedStartDate = date;
+        if (!data.available || isPast || isFutureLimit) {
+          div.classList.add('unavailable');
         } else {
-          selectedEndDate = date;
+          div.addEventListener('click', () => toggleDate(dateStr, div));
         }
+
+        calendarEl.appendChild(div);
       }
-
-      generateCalendar();
-      updateSummary();
     }
 
-    // Função para atualizar o resumo com valores e detalhes
-    function updateSummary() {
-      const guests = parseInt(guestsInput.value);
-      const pets = parseInt(petsInput.value);
-      const totalNights = selectedEndDate && selectedStartDate ? (selectedEndDate - selectedStartDate) / (1000 * 3600 * 24) : 0;
-      const extraGuests = guests > 10 ? (guests - 10) * extraGuestFee : 0;
-      const petFeeTotal = pets > 0 ? petFee : 0;
-      const dailyRate = 150; // R$150 é o valor base por diária
-      const totalAmount = totalNights * dailyRate + extraGuests + petFeeTotal; // Soma as diárias, taxas extras
-
-      summaryElement.innerHTML = `
-        <strong>Período:</strong> ${selectedStartDate ? formatDate(selectedStartDate) : '-'} a ${selectedEndDate ? formatDate(selectedEndDate) : '-'}<br>
-        <strong>Hóspedes:</strong> ${guests} <br>
-        <strong>Pets:</strong> ${pets} <br>
-        <strong>Total:</strong> R$ ${totalAmount.toFixed(2)} <br>
-        <strong>Valor por noite:</strong> R$ ${totalAmount / totalNights ? (totalAmount / totalNights).toFixed(2) : 0} <br>
-      `;
+    function toggleDate(dateStr, element) {
+      const idx = selectedDates.indexOf(dateStr);
+      if (idx > -1) {
+        selectedDates.splice(idx, 1);
+        element.classList.remove('selected');
+      } else {
+        selectedDates.push(dateStr);
+        element.classList.add('selected');
+      }
+      calculateTotal();
     }
 
-    // Função para limpar a seleção de datas
-    function clearSelection() {
-      selectedStartDate = null;
-      selectedEndDate = null;
-      generateCalendar();
-      updateSummary();
+    function calculateTotal() {
+      let total = 0;
+      selectedDates.forEach(date => {
+        if (availabilityMap[date]) {
+          total += availabilityMap[date].price;
+        }
+      });
+      totalEl.textContent = total.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     }
 
-    // Adiciona o evento de limpar
-    clearSelectionButton.addEventListener('click', clearSelection);
+    async function init() {
+      await fetchAvailability();
+      const now = new Date();
+      createCalendar(now.getMonth(), now.getFullYear());
+    }
 
-    // Adiciona os eventos de navegação do mês
-    document.getElementById('prevMonth').addEventListener('click', () => navigateMonth(-1));
-    document.getElementById('nextMonth').addEventListener('click', () => navigateMonth(1));
-
-    // Adiciona o evento para o botão de reserva
-    reserveButton.addEventListener('click', () => {
-      const message = `Reserva confirmada!<br>
-      Período: ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}<br>
-      Hóspedes: ${guestsInput.value} <br>
-      Pets: ${petsInput.value}<br>
-      Total: R$ ${parseFloat(summaryElement.innerText.split('R$ ')[1].split(' ')[0]).toFixed(2)} <br>
-      <br> Aguardamos sua chegada!`;
-
-      window.location.href = `https://wa.me/5511991120189?text=${encodeURIComponent(message)}`;
-    });
-
-    // Atualiza o calendário quando a página for carregada
-    generateCalendar();
+    init();
   </script>
 </body>
 </html>
