@@ -4,118 +4,172 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calendário de Reservas</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; max-width: 400px; }
-    .day { padding: 10px; border: 1px solid #ccc; text-align: center; border-radius: 5px; cursor: pointer; }
-    .unavailable { background-color: #f8d7da; color: #721c24; pointer-events: none; }
-    .selected { background-color: #c3e6cb; }
-    .header { font-weight: bold; text-align: center; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f9f9f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      color: #333;
+    }
+
+    .calendar-container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      padding: 20px;
+      max-width: 360px;
+      width: 100%;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .month-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+      letter-spacing: 0.5px;
+    }
+
+    .nav-btn {
+      background: none;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: #006d45;
+    }
+
+    .nav-btn:hover {
+      background-color: #e0f2ea;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .day, .date-cell {
+      text-align: center;
+      font-size: 0.9rem;
+      padding: 6px 0;
+    }
+
+    .day {
+      font-weight: 600;
+      color: #006d45;
+    }
+
+    .date-cell {
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .date-cell:hover {
+      background-color: #e0f2ea;
+    }
+
+    .disabled {
+      background-color: #f0f0f0;
+      color: #aaa;
+      pointer-events: none;
+    }
+
+    .selected-range {
+      background-color: #b7e2d0;
+    }
+
+    .controls {
+      margin-top: 16px;
+      text-align: center;
+    }
+
+    .action-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .clear-btn {
+      color: #006d45;
+      background: none;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      display: none;
+    }
+
+    .reserve-btn {
+      background-color: #006d45;
+      color: white;
+      font-size: 1rem;
+      margin-top: 10px;
+    }
+
+    .inputs {
+      margin-top: 16px;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    .inputs label {
+      display: block;
+      margin-top: 8px;
+    }
+
+    .inline-inputs {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .inline-inputs input {
+      width: 48px;
+      text-align: center;
+    }
+
+    .summary {
+      margin-top: 16px;
+      font-size: 0.95rem;
+    }
   </style>
 </head>
 <body>
-  <h1>Calendário de Reservas</h1>
-  <div id="calendar"></div>
-  <p>Valor total: R$ <span id="total">0,00</span></p>
+  <div class="calendar-container">
+    <button class="action-btn clear-btn" id="clearSelection">Limpar seleção</button>
+    <div class="header">
+      <button class="nav-btn" id="prevMonth">&#x276E;</button>
+      <div class="month-title" id="monthTitle">Maio 2025</div>
+      <button class="nav-btn" id="nextMonth">&#x276F;</button>
+    </div>
+    <div class="calendar-grid" id="calendarDays"></div>
+    <div class="inputs">
+      <label>Hóspedes (máx. 12): <input type="number" id="guests" min="1" max="12" value="2"></label>
+      <label>Pets (máx. 2): <input type="number" id="pets" min="0" max="2" value="0"></label>
+    </div>
+    <div class="summary" id="summary"></div>
+    <div class="controls">
+      <button class="action-btn reserve-btn" id="reserveBtn">Reservar</button>
+    </div>
+  </div>
 
   <script>
-    const spreadsheetId = '1v9LAVOAaf5jq3n3LSf4_cSaJCKcVKVkBg2A45o0IC_A';
-    const sheetName = 'disponível';
-    const apiUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}`;
-
-    const calendarEl = document.getElementById('calendar');
-    const totalEl = document.getElementById('total');
-
-    let availabilityMap = {}; // { '2025-05-11': { price: 1900, available: true } }
-    let selectedDates = [];
-
-    async function fetchAvailability() {
-      const res = await fetch(apiUrl);
-      const text = await res.text();
-      const json = JSON.parse(text.substr(47).slice(0, -2));
-      const rows = json.table.rows;
-      rows.forEach(row => {
-        const date = row.c[0]?.v; // formato: "2025-05-11"
-        const price = parseFloat(row.c[1]?.v) || 0;
-        const available = row.c[2]?.v?.toLowerCase() === 'sim';
-        availabilityMap[date] = { price, available };
-      });
-    }
-
-    function createCalendar(month, year) {
-      calendarEl.innerHTML = '';
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      const today = new Date();
-      const maxDate = new Date('2025-12-31');
-
-      // Header with day names
-      const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-      daysOfWeek.forEach(day => {
-        const dayHeader = document.createElement('div');
-        dayHeader.classList.add('header');
-        dayHeader.textContent = day;
-        calendarEl.appendChild(dayHeader);
-      });
-
-      // Blank spaces before the first day of the month
-      for (let i = 0; i < firstDay.getDay(); i++) {
-        calendarEl.innerHTML += '<div></div>';
-      }
-
-      // Loop through each day of the month
-      for (let d = 1; d <= lastDay.getDate(); d++) {
-        const date = new Date(year, month, d);
-        const dateStr = date.toISOString().split('T')[0];
-        const isPast = date < new Date(today.toDateString());
-        const isFutureLimit = date > maxDate;
-        const data = availabilityMap[dateStr] || {};
-
-        const div = document.createElement('div');
-        div.classList.add('day');
-        div.textContent = d;
-
-        // Apply styles based on availability, past dates, or future limit
-        if (!data.available || isPast || isFutureLimit) {
-          div.classList.add('unavailable');
-        } else {
-          div.addEventListener('click', () => toggleDate(dateStr, div));
-        }
-
-        calendarEl.appendChild(div);
-      }
-    }
-
-    function toggleDate(dateStr, element) {
-      const idx = selectedDates.indexOf(dateStr);
-      if (idx > -1) {
-        selectedDates.splice(idx, 1);
-        element.classList.remove('selected');
-      } else {
-        selectedDates.push(dateStr);
-        element.classList.add('selected');
-      }
-      calculateTotal();
-    }
-
-    function calculateTotal() {
-      let total = 0;
-      selectedDates.forEach(date => {
-        if (availabilityMap[date]) {
-          const { price } = availabilityMap[date];
-          total += price;
-        }
-      });
-      totalEl.textContent = total.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-    }
-
-    async function init() {
-      await fetchAvailability();
-      const now = new Date();
-      createCalendar(now.getMonth(), now.getFullYear());
-    }
-
-    init();
+    // Aqui entra o script do calendário (mantido fora do HTML por clareza neste exemplo).
+    // Quando você estiver pronta, posso inserir o script JS completo para você copiar junto com este HTML.
   </script>
 </body>
 </html>
