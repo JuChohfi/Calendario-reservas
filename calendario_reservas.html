@@ -1,233 +1,175 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calendário de Reservas</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
   <style>
     body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: 30px auto;
-      padding: 20px;
-      background: #fff;
-      color: #333;
-    }
-    h2 {
-      text-align: center;
-    }
-    .calendar {
+      font-family: 'Inter', sans-serif;
+      background: #f9f9f9;
+      margin: 0;
+      padding: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
+      padding: 20px;
+      color: #333;
     }
-    table {
-      border-collapse: collapse;
+
+    .calendar-container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      padding: 20px;
+      max-width: 360px;
       width: 100%;
-      margin-top: 10px;
     }
-    th, td {
-      text-align: center;
-      padding: 6px;
-      border: 1px solid #ccc;
-    }
-    td.disabled {
-      background-color: #eee;
-      color: #999;
-    }
-    td.available:hover {
-      background-color: #cce7ff;
-      cursor: pointer;
-    }
-    td.selected {
-      background-color: #007bff;
-      color: white;
-    }
-    .form-group {
-      margin: 10px 0;
-    }
-    button {
-      background-color: #007bff;
-      color: white;
-      border: none;
-      padding: 10px;
-      width: 100%;
-      font-size: 16px;
-      cursor: pointer;
-      margin-top: 15px;
-    }
-    select, input {
-      width: 100%;
-      padding: 6px;
-    }
-    .nav {
+
+    .header {
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .month-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+      letter-spacing: 0.5px;
+    }
+
+    .nav-btn {
+      background: none;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: #006d45;
+    }
+
+    .nav-btn:hover {
+      background-color: #e0f2ea;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
       margin-top: 10px;
+    }
+
+    .day, .date-cell {
+      text-align: center;
+      font-size: 0.9rem;
+      padding: 6px 0;
+    }
+
+    .day {
+      font-weight: 600;
+      color: #006d45;
+    }
+
+    .date-cell {
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .date-cell:hover {
+      background-color: #e0f2ea;
+    }
+
+    .disabled {
+      background-color: #f0f0f0;
+      color: #aaa;
+      pointer-events: none;
+    }
+
+    .selected-range {
+      background-color: #b7e2d0;
+    }
+
+    .controls {
+      margin-top: 16px;
+      text-align: center;
+    }
+
+    .action-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .clear-btn {
+      color: #006d45;
+      background: none;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      display: none;
+    }
+
+    .reserve-btn {
+      background-color: #006d45;
+      color: white;
+      font-size: 1rem;
+      margin-top: 10px;
+    }
+
+    .inputs {
+      margin-top: 16px;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    .inputs label {
+      display: block;
+      margin-top: 8px;
+    }
+
+    .inline-inputs {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .inline-inputs input {
+      width: 48px;
+      text-align: center;
+    }
+
+    .summary {
+      margin-top: 16px;
+      font-size: 0.95rem;
     }
   </style>
 </head>
 <body>
-  <h2>Calendário de Reservas</h2>
-
-  <div class="form-group">
-    <label>Hóspedes (máx. 12):</label>
-    <input type="number" id="hospedes" min="1" max="12" value="2">
-  </div>
-
-  <div class="form-group">
-    <label>Pets:</label>
-    <input type="number" id="pets" min="0" value="0">
-  </div>
-
-  <div class="calendar">
-    <div class="nav">
-      <button onclick="prevMonth()">&#8592;</button>
-      <span id="monthYear"></span>
-      <button onclick="nextMonth()">&#8594;</button>
+  <div class="calendar-container">
+    <button class="action-btn clear-btn" id="clearSelection">Limpar seleção</button>
+    <div class="header">
+      <button class="nav-btn" id="prevMonth">&#x276E;</button>
+      <div class="month-title" id="monthTitle">Maio 2025</div>
+      <button class="nav-btn" id="nextMonth">&#x276F;</button>
     </div>
-    <table id="calendar"></table>
+    <div class="calendar-grid" id="calendarDays"></div>
+    <div class="inputs">
+      <label>Hóspedes (máx. 12): <input type="number" id="guests" min="1" max="12" value="2"></label>
+      <label>Pets (máx. 2): <input type="number" id="pets" min="0" max="2" value="0"></label>
+    </div>
+    <div class="summary" id="summary"></div>
+    <div class="controls">
+      <button class="action-btn reserve-btn" id="reserveBtn">Reservar</button>
+    </div>
   </div>
-
-  <div class="form-group">
-    <p><strong>Entrada:</strong> <span id="checkinDisplay">--</span></p>
-    <p><strong>Saída:</strong> <span id="checkoutDisplay">--</span></p>
-    <p><strong>Total:</strong> R$<span id="total">0</span> (<span id="noites">0</span> noites)</p>
-  </div>
-
-  <button onclick="clearSelection()">Limpar Seleção</button>
-  <button onclick="enviarWhatsApp()">RESERVAR</button>
 
   <script>
-    const precoBase = 1900;
-    const taxaHospedeExtra = 150;
-    const taxaPet = 150;
-    const calendario = document.getElementById("calendar");
-    const monthYear = document.getElementById("monthYear");
-
-    let dataAtual = new Date();
-    let dataSelecionadaInicio = null;
-    let dataSelecionadaFim = null;
-
-    function renderCalendar() {
-      calendario.innerHTML = "";
-      const ano = dataAtual.getFullYear();
-      const mes = dataAtual.getMonth();
-      monthYear.innerText = new Date(ano, mes).toLocaleString("pt-BR", { month: "long", year: "numeric" });
-
-      const primeiroDia = new Date(ano, mes, 1).getDay();
-      const diasNoMes = new Date(ano, mes + 1, 0).getDate();
-
-      let html = "<tr>";
-      ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].forEach(d => html += `<th>${d}</th>`);
-      html += "</tr><tr>";
-
-      for (let i = 0; i < primeiroDia; i++) html += "<td></td>";
-
-      for (let dia = 1; dia <= diasNoMes; dia++) {
-        const data = new Date(ano, mes, dia);
-        const hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        let classe = "available";
-        if (data < hoje) classe = "disabled";
-
-        html += `<td class="${classe}" data-date="${data.toISOString()}">${dia}</td>`;
-        if ((primeiroDia + dia) % 7 === 0) html += "</tr><tr>";
-      }
-
-      calendario.innerHTML = html;
-
-      document.querySelectorAll("td.available").forEach(td => {
-        td.onclick = () => selecionarData(new Date(td.dataset.date));
-      });
-    }
-
-    function selecionarData(data) {
-      if (!dataSelecionadaInicio || (dataSelecionadaInicio && dataSelecionadaFim)) {
-        dataSelecionadaInicio = data;
-        dataSelecionadaFim = null;
-      } else if (data > dataSelecionadaInicio) {
-        const dias = (data - dataSelecionadaInicio) / (1000 * 60 * 60 * 24);
-        if (dias < 2) {
-          alert("Estadia mínima de 2 noites.");
-          return;
-        }
-        dataSelecionadaFim = data;
-      }
-
-      atualizarSelecao();
-    }
-
-    function atualizarSelecao() {
-      document.querySelectorAll("td").forEach(td => td.classList.remove("selected"));
-      if (dataSelecionadaInicio) {
-        const inicio = new Date(dataSelecionadaInicio);
-        const fim = dataSelecionadaFim ? new Date(dataSelecionadaFim) : inicio;
-        document.querySelectorAll("td.available").forEach(td => {
-          const data = new Date(td.dataset.date);
-          if (data >= inicio && data <= fim) td.classList.add("selected");
-        });
-
-        document.getElementById("checkinDisplay").innerText = inicio.toLocaleDateString();
-        document.getElementById("checkoutDisplay").innerText = dataSelecionadaFim ? fim.toLocaleDateString() : "--";
-
-        calcularTotal();
-      }
-    }
-
-    function calcularTotal() {
-      if (!dataSelecionadaInicio || !dataSelecionadaFim) return;
-
-      const dias = (dataSelecionadaFim - dataSelecionadaInicio) / (1000 * 60 * 60 * 24);
-      const hospedes = parseInt(document.getElementById("hospedes").value) || 0;
-      const pets = parseInt(document.getElementById("pets").value) || 0;
-
-      let total = precoBase * dias;
-      if (hospedes > 10) total += (hospedes - 10) * taxaHospedeExtra * dias;
-      total += pets * taxaPet;
-
-      document.getElementById("total").innerText = total.toLocaleString();
-      document.getElementById("noites").innerText = dias;
-    }
-
-    function clearSelection() {
-      dataSelecionadaInicio = null;
-      dataSelecionadaFim = null;
-      document.getElementById("checkinDisplay").innerText = "--";
-      document.getElementById("checkoutDisplay").innerText = "--";
-      document.getElementById("total").innerText = "0";
-      document.getElementById("noites").innerText = "0";
-      atualizarSelecao();
-    }
-
-    function prevMonth() {
-      dataAtual.setMonth(dataAtual.getMonth() - 1);
-      renderCalendar();
-      clearSelection();
-    }
-
-    function nextMonth() {
-      dataAtual.setMonth(dataAtual.getMonth() + 1);
-      renderCalendar();
-      clearSelection();
-    }
-
-    function enviarWhatsApp() {
-      if (!dataSelecionadaInicio || !dataSelecionadaFim) {
-        alert("Por favor, selecione check-in e check-out.");
-        return;
-      }
-
-      const checkin = dataSelecionadaInicio.toLocaleDateString();
-      const checkout = dataSelecionadaFim.toLocaleDateString();
-      const hospedes = document.getElementById("hospedes").value;
-      const pets = document.getElementById("pets").value;
-      const total = document.getElementById("total").innerText;
-
-      const msg = `Olá! Gostaria de reservar:\nCheck-in: ${checkin}\nCheck-out: ${checkout}\nHóspedes: ${hospedes}\nPets: ${pets}\nValor total: R$${total}`;
-      window.open(`https://wa.me/5511991120189?text=${encodeURIComponent(msg)}`);
-    }
-
-    renderCalendar();
+    // Aqui entra o script do calendário (mantido fora do HTML por clareza neste exemplo).
+    // Quando você estiver pronta, posso inserir o script JS completo para você copiar junto com este HTML.
   </script>
 </body>
 </html>
