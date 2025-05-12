@@ -177,7 +177,6 @@
     let selectedEndDate = null;
     let currentMonth = new Date();
     let availableDates = {};
-    let dailyRates = {};
 
     // Elementos do DOM
     const monthTitle = document.getElementById('monthTitle');
@@ -200,8 +199,6 @@
     function generateCalendar() {
       const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
       const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-      const today = new Date();
-      const maxDate = new Date(2025, 11, 31); // 31 de dezembro de 2025
 
       // Atualiza o título do mês
       monthTitle.innerText = `${firstDayOfMonth.toLocaleString('pt-BR', { month: 'long' })} ${currentMonth.getFullYear()}`;
@@ -210,8 +207,8 @@
       calendarDays.innerHTML = '';
 
       // Preenche os dias da semana
-      const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-      weekDays.forEach(day => {
+      const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      daysOfWeek.forEach(day => {
         const dayCell = document.createElement('div');
         dayCell.classList.add('day');
         dayCell.innerText = day;
@@ -233,8 +230,10 @@
 
         const formattedDate = formatDate(date);
 
-        // Verifica se a data é anterior a hoje ou após dezembro de 2025
-        if (date < today || date > maxDate) {
+        // Bloqueia datas passadas
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (date < today) {
           dateCell.classList.add('disabled');
         }
 
@@ -258,35 +257,23 @@
 
     // Função para navegar entre os meses
     function navigateMonth(offset) {
-      currentMonth.setMonth(currentMonth.getMonth() + offset);
+      const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1);
+      const maxMonth = new Date(2025, 11, 31); // Dezembro de 2025
+
+      if (newMonth > maxMonth) return;
+
+      currentMonth = newMonth;
       generateCalendar();
     }
 
     // Função para lidar com a seleção de datas
     function handleDateSelection(date) {
       const formattedDate = formatDate(date);
-      if (availableDates[formattedDate] === false || date < new Date() || date > new Date(2025, 11, 31)) return;
+      if (availableDates[formattedDate] === false) return; // Se a data não for disponível, não faz nada
 
       if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
         selectedStartDate = date;
-        selectedEndDate = null;
-      } else if (selectedStartDate && !selectedEndDate) {
-        if (date < selectedStartDate) {
-          selectedEndDate = selectedStartDate;
-          selectedStartDate = date;
-        } else {
-          selectedEndDate = date;
-        }
-      }
-
-      generateCalendar();
-      updateSummary();
-    }
-
-    // Função para atualizar o resumo com valores e detalhes
-    function updateSummary() {
-      const guests = parseInt(guestsInput.value);
-      const pets = parseInt(petsInput.value);
-      let totalNights =
-::contentReference[oaicite:0]{index=0}
+        selectedEndDate = null; // Reseta a data final se a inicial for alterada
+      } else if (selectedStartDate && !selectedEndDate
+::contentReference[oaicite:20]{index=20}
  
