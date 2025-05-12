@@ -5,37 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calendário de Reservas</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    .calendar {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 5px;
-      max-width: 420px;
-      margin-bottom: 20px;
-    }
-    .day {
-      padding: 10px;
-      border: 1px solid #ccc;
-      text-align: center;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .unavailable {
-      background-color: #f8d7da;
-      color: #721c24;
-      pointer-events: none;
-    }
-    .selected {
-      background-color: #c3e6cb;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; max-width: 400px; }
+    .day { padding: 10px; border: 1px solid #ccc; text-align: center; border-radius: 5px; cursor: pointer; }
+    .unavailable { background-color: #f8d7da; color: #721c24; pointer-events: none; }
+    .selected { background-color: #c3e6cb; }
+    .header { font-weight: bold; text-align: center; }
   </style>
 </head>
 <body>
   <h1>Calendário de Reservas</h1>
-  <div id="calendar" class="calendar"></div>
+  <div id="calendar"></div>
   <p>Valor total: R$ <span id="total">0,00</span></p>
 
   <script>
@@ -46,46 +26,47 @@
     const calendarEl = document.getElementById('calendar');
     const totalEl = document.getElementById('total');
 
-    let availabilityMap = {}; // { '2025-05-11': { price: 1900, available: true, discount: 10 } }
+    let availabilityMap = {}; // { '2025-05-11': { price: 1900, available: true } }
     let selectedDates = [];
 
-    // Função para pegar os dados da planilha Google
     async function fetchAvailability() {
-      try {
-        const res = await fetch(apiUrl);
-        const text = await res.text();
-        const json = JSON.parse(text.substr(47).slice(0, -2));
-        const rows = json.table.rows;
-        rows.forEach(row => {
-          const date = row.c[0]?.v; // Data no formato "2025-05-11"
-          const price = parseFloat(row.c[1]?.v) || 0;
-          const available = row.c[2]?.v?.toLowerCase() === 'sim';
-          const discount = parseFloat(row.c[3]?.v) || 0;
-          availabilityMap[date] = { price, available, discount };
-        });
-      } catch (e) {
-        console.error('Erro ao carregar dados da planilha:', e);
-      }
+      const res = await fetch(apiUrl);
+      const text = await res.text();
+      const json = JSON.parse(text.substr(47).slice(0, -2));
+      const rows = json.table.rows;
+      rows.forEach(row => {
+        const date = row.c[0]?.v; // formato: "2025-05-11"
+        const price = parseFloat(row.c[1]?.v) || 0;
+        const available = row.c[2]?.v?.toLowerCase() === 'sim';
+        availabilityMap[date] = { price, available };
+      });
     }
 
-    // Função para criar o calendário mensal
     function createCalendar(month, year) {
-      calendarEl.innerHTML = ''; // Limpar o calendário antes de recriar
+      calendarEl.innerHTML = '';
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       const today = new Date();
       const maxDate = new Date('2025-12-31');
 
-      // Preenche espaços vazios antes do primeiro dia do mês
+      // Header with day names
+      const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      daysOfWeek.forEach(day => {
+        const dayHeader = document.createElement('div');
+        dayHeader.classList.add('header');
+        dayHeader.textContent = day;
+        calendarEl.appendChild(dayHeader);
+      });
+
+      // Blank spaces before the first day of the month
       for (let i = 0; i < firstDay.getDay(); i++) {
-        const spacer = document.createElement('div');
-        calendarEl.appendChild(spacer);
+        calendarEl.innerHTML += '<div></div>';
       }
 
-      // Criar os dias do mês
+      // Loop through each day of the month
       for (let d = 1; d <= lastDay.getDate(); d++) {
         const date = new Date(year, month, d);
-        const dateStr = date.toISOString().split('T')[0]; // Formato "YYYY-MM-DD"
+        const dateStr = date.toISOString().split('T')[0];
         const isPast = date < new Date(today.toDateString());
         const isFutureLimit = date > maxDate;
         const data = availabilityMap[dateStr] || {};
@@ -94,18 +75,17 @@
         div.classList.add('day');
         div.textContent = d;
 
-        // Verifica se a data está indisponível ou se é no passado
+        // Apply styles based on availability, past dates, or future limit
         if (!data.available || isPast || isFutureLimit) {
           div.classList.add('unavailable');
         } else {
-          div.addEventListener('click', () => toggleDate(dateStr, div)); // Adiciona o evento de clique
+          div.addEventListener('click', () => toggleDate(dateStr, div));
         }
 
         calendarEl.appendChild(div);
       }
     }
 
-    // Função para selecionar ou desmarcar uma data
     function toggleDate(dateStr, element) {
       const idx = selectedDates.indexOf(dateStr);
       if (idx > -1) {
@@ -115,30 +95,27 @@
         selectedDates.push(dateStr);
         element.classList.add('selected');
       }
-      calculateTotal(); // Recalcula o valor total
+      calculateTotal();
     }
 
-    // Função para calcular o valor total das reservas
     function calculateTotal() {
       let total = 0;
       selectedDates.forEach(date => {
         if (availabilityMap[date]) {
-          const { price, discount } = availabilityMap[date];
-          const finalPrice = price * (1 - discount / 100); // Aplica o desconto, se houver
-          total += finalPrice;
+          const { price } = availabilityMap[date];
+          total += price;
         }
       });
       totalEl.textContent = total.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     }
 
-    // Função para inicializar o calendário
     async function init() {
       await fetchAvailability();
       const now = new Date();
       createCalendar(now.getMonth(), now.getFullYear());
     }
 
-    init(); // Inicializa o calendário ao carregar a página
+    init();
   </script>
 </body>
 </html>
