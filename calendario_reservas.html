@@ -15,7 +15,7 @@
 <body>
   <h1>Calendário de Reservas</h1>
   <div id="calendar"></div>
-  <p>Valor total: R$ <span id="total"></span></p>
+  <p>Valor total: R$ <span id="total">0,00</span></p>
 
   <script>
     const spreadsheetId = '1v9LAVOAaf5jq3n3LSf4_cSaJCKcVKVkBg2A45o0IC_A';
@@ -25,7 +25,7 @@
     const calendarEl = document.getElementById('calendar');
     const totalEl = document.getElementById('total');
 
-    let availabilityMap = {}; // { '2025-05-11': { price: 1900, available: true } }
+    let availabilityMap = {}; // { '2025-05-11': { price: 1900, available: true, discount: 10 } }
     let selectedDates = [];
 
     async function fetchAvailability() {
@@ -37,7 +37,8 @@
         const date = row.c[0]?.v; // formato: "2025-05-11"
         const price = parseFloat(row.c[1]?.v) || 0;
         const available = row.c[2]?.v?.toLowerCase() === 'sim';
-        availabilityMap[date] = { price, available };
+        const discount = parseFloat(row.c[3]?.v) || 0;
+        availabilityMap[date] = { price, available, discount };
       });
     }
 
@@ -89,7 +90,9 @@
       let total = 0;
       selectedDates.forEach(date => {
         if (availabilityMap[date]) {
-          total += availabilityMap[date].price;
+          const { price, discount } = availabilityMap[date];
+          const finalPrice = price * (1 - discount / 100);
+          total += finalPrice;
         }
       });
       totalEl.textContent = total.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
