@@ -1,322 +1,181 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calendário de Reservas</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
   <style>
     body {
-      font-family: 'Inter', sans-serif;
-      background: #f9f9f9;
-      margin: 0;
-      padding: 20px;
+      font-family: Arial, sans-serif;
       display: flex;
-      flex-direction: column;
+      justify-content: center;
       align-items: center;
-      color: #333;
+      flex-direction: column;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #f5f5f5;
     }
 
-    .calendar-container {
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-      padding: 20px;
-      max-width: 360px;
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    table {
+      border-collapse: collapse;
       width: 100%;
+      max-width: 600px;
+      background-color: white;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    th,
+    td {
+      border: 1px solid #ddd;
+      text-align: center;
+      padding: 10px;
+    }
+
+    th {
+      background-color: #f2f2f2;
     }
 
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      width: 100%;
+      max-width: 600px;
       margin-bottom: 10px;
     }
 
-    .month-title {
-      font-weight: 600;
-      font-size: 1.1rem;
-      letter-spacing: 0.5px;
-    }
-
-    .nav-btn {
-      background: none;
-      border: none;
-      font-size: 1rem;
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 6px;
-      color: #006d45;
-    }
-
-    .nav-btn:hover {
-      background-color: #e0f2ea;
-    }
-
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 6px;
-      margin-top: 10px;
-    }
-
-    .day, .date-cell {
-      text-align: center;
-      font-size: 0.9rem;
-      padding: 6px 0;
-    }
-
-    .day {
-      font-weight: 600;
-      color: #006d45;
-    }
-
-    .date-cell {
-      border-radius: 8px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    .date-cell:hover {
-      background-color: #e0f2ea;
-    }
-
-    .disabled {
-      background-color: #f0f0f0 !important;
-      color: #aaa;
-      pointer-events: none;
-    }
-
-    .selected-range {
-      background-color: #b7e2d0;
-    }
-
-    .controls {
-      margin-top: 16px;
-      text-align: center;
-    }
-
-    .action-btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
+    .btn {
+      padding: 5px 10px;
       cursor: pointer;
     }
 
-    .clear-btn {
-      color: #006d45;
-      background: none;
-      font-size: 0.9rem;
-      margin-bottom: 8px;
-      display: none;
+    .today {
+      background-color: #cfe3ff;
     }
 
-    .reserve-btn {
-      background-color: #006d45;
-      color: white;
-      font-size: 1rem;
-      margin-top: 10px;
+    .unavailable {
+      background-color: #ffcccc;
     }
 
-    .inputs {
-      margin-top: 16px;
-      text-align: left;
-      font-size: 0.9rem;
-    }
-
-    .inputs label {
+    .price {
       display: block;
-      margin-top: 8px;
-    }
-
-    .inline-inputs {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .inline-inputs input {
-      width: 48px;
-      text-align: center;
-    }
-
-    .summary {
-      margin-top: 16px;
-      font-size: 0.95rem;
+      font-size: 0.8em;
+      color: #333;
     }
   </style>
 </head>
+
 <body>
-  <div class="calendar-container">
-    <button class="action-btn clear-btn" id="clearSelection">Limpar seleção</button>
-    <div class="header">
-      <button class="nav-btn" id="prevMonth">&#x276E;</button>
-      <div class="month-title" id="monthTitle">Carregando...</div>
-      <button class="nav-btn" id="nextMonth">&#x276F;</button>
-    </div>
-    <div class="calendar-grid" id="calendarDays"></div>
-    <div class="inputs">
-      <label>Hóspedes (máx. 12): <input type="number" id="guests" min="1" max="12" value="2"></label>
-      <label>Pets (máx. 2): <input type="number" id="pets" min="0" max="2" value="0"></label>
-    </div>
-    <div class="summary" id="summary"></div>
-    <div class="controls">
-      <button class="action-btn reserve-btn" id="reserveBtn">Reservar</button>
-    </div>
+  <h1>Calendário de Reservas</h1>
+  <div class="header">
+    <button class="btn" onclick="changeMonth(-1)">&lt; Anterior</button>
+    <h2 id="monthYear"></h2>
+    <button class="btn" onclick="changeMonth(1)">Próximo &gt;</button>
   </div>
+  <table id="calendar"></table>
 
   <script>
-    const maxGuests = 12;
-    const maxPets = 2;
-    const petFee = 150;
-    const extraGuestFee = 150;
-    const dailyRate = 150;
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbZUZD_RuGjPaw7LhV1bJzQT0tX7vndih4VuOlm4pEJ6LktEgiyL7p-fiXh2iewxX3-WpqkB4iaFIL/pub?output=csv';
 
-    let selectedStartDate = null;
-    let selectedEndDate = null;
-    let currentMonth = new Date();
-    const today = new Date();
-    let availableDates = {};
+    let currentDate = new Date();
+    let availability = {};
+    let prices = {};
 
-    const monthTitle = document.getElementById('monthTitle');
-    const calendarDays = document.getElementById('calendarDays');
-    const clearSelectionButton = document.getElementById('clearSelection');
-    const reserveButton = document.getElementById('reserveBtn');
-    const guestsInput = document.getElementById('guests');
-    const petsInput = document.getElementById('pets');
-    const summaryElement = document.getElementById('summary');
+    async function loadCSVData() {
+      const response = await fetch(csvUrl);
+      const data = await response.text();
+      const rows = data.split('\n').slice(1); // remove header
 
-    function formatDate(date) {
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
-    }
-
-    function generateCalendar() {
-      const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-      const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-      monthTitle.innerText = `${firstDay.toLocaleString('pt-BR', { month: 'long' })} ${currentMonth.getFullYear()}`;
-      calendarDays.innerHTML = '';
-
-      // Dias da semana
-      const weekdays = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-      weekdays.forEach(day => {
-        const el = document.createElement('div');
-        el.innerText = day;
-        el.classList.add('day');
-        calendarDays.appendChild(el);
+      rows.forEach(row => {
+        const [dataCell, disponivel, valor] = row.split(',');
+        if (dataCell) {
+          const dateKey = new Date(dataCell.trim()).toISOString().split('T')[0];
+          availability[dateKey] = disponivel.trim().toLowerCase() !== 'não';
+          prices[dateKey] = parseFloat(valor.replace('R$', '').replace(',', '.')) || null;
+        }
       });
 
-      // Espaço para início do mês
-      for (let i = 0; i < firstDay.getDay(); i++) {
-        const empty = document.createElement('div');
-        calendarDays.appendChild(empty);
+      renderCalendar();
+    }
+
+    function changeMonth(monthOffset) {
+      currentDate.setMonth(currentDate.getMonth() + monthOffset);
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const calendar = document.getElementById('calendar');
+      calendar.innerHTML = '';
+
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startDay = firstDay.getDay();
+
+      document.getElementById('monthYear').innerText = `${firstDay.toLocaleString('pt-BR', {
+        month: 'long', year: 'numeric'
+      })}`;
+
+      const headerRow = document.createElement('tr');
+      ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].forEach(day => {
+        const th = document.createElement('th');
+        th.innerText = day;
+        headerRow.appendChild(th);
+      });
+      calendar.appendChild(headerRow);
+
+      let row = document.createElement('tr');
+      for (let i = 0; i < startDay; i++) {
+        const cell = document.createElement('td');
+        row.appendChild(cell);
       }
 
       for (let day = 1; day <= lastDay.getDate(); day++) {
-        const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-        const formatted = formatDate(date);
-        const cell = document.createElement('div');
-        cell.classList.add('date-cell');
+        const date = new Date(year, month, day);
+        const dateKey = date.toISOString().split('T')[0];
+        const cell = document.createElement('td');
         cell.innerText = day;
 
-        if (
-          date < today.setHours(0,0,0,0) ||
-          currentMonth.getFullYear() > 2025 ||
-          (currentMonth.getFullYear() === 2025 && currentMonth.getMonth() > 11) ||
-          availableDates[formatted] === false
-        ) {
-          cell.classList.add('disabled');
+        if (date.toDateString() === new Date().toDateString()) {
+          cell.classList.add('today');
         }
 
-        if (selectedStartDate && selectedEndDate && date >= selectedStartDate && date <= selectedEndDate) {
-          cell.classList.add('selected-range');
+        if (availability[dateKey] === false) {
+          cell.classList.add('unavailable');
         }
 
-        cell.addEventListener('click', () => handleDateSelection(date));
-        calendarDays.appendChild(cell);
-      }
-    }
+        if (prices[dateKey]) {
+          const priceSpan = document.createElement('span');
+          priceSpan.className = 'price';
+          priceSpan.innerText = `R$ ${prices[dateKey].toFixed(2)}`;
+          cell.appendChild(document.createElement('br'));
+          cell.appendChild(priceSpan);
+        }
 
-    function handleDateSelection(date) {
-      if (
-        date < today.setHours(0,0,0,0) ||
-        currentMonth.getFullYear() > 2025 ||
-        (currentMonth.getFullYear() === 2025 && currentMonth.getMonth() > 11) ||
-        availableDates[formatDate(date)] === false
-      ) return;
+        row.appendChild(cell);
 
-      if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
-        selectedStartDate = date;
-        selectedEndDate = null;
-      } else if (selectedStartDate && !selectedEndDate) {
-        if (date < selectedStartDate) {
-          selectedEndDate = selectedStartDate;
-          selectedStartDate = date;
-        } else {
-          selectedEndDate = date;
+        if (date.getDay() === 6) {
+          calendar.appendChild(row);
+          row = document.createElement('tr');
         }
       }
 
-      generateCalendar();
-      updateSummary();
-    }
-
-    function updateSummary() {
-      const guests = parseInt(guestsInput.value);
-      const pets = parseInt(petsInput.value);
-      const nights = selectedEndDate && selectedStartDate ? (selectedEndDate - selectedStartDate) / (1000 * 3600 * 24) : 0;
-      const extras = guests > 10 ? (guests - 10) * extraGuestFee : 0;
-      const petExtras = pets > 0 ? petFee : 0;
-      const total = nights * dailyRate + extras + petExtras;
-
-      summaryElement.innerHTML = `
-        <strong>Período:</strong> ${selectedStartDate ? formatDate(selectedStartDate) : '-'} a ${selectedEndDate ? formatDate(selectedEndDate) : '-'}<br>
-        <strong>Hóspedes:</strong> ${guests} <br>
-        <strong>Pets:</strong> ${pets} <br>
-        <strong>Total:</strong> R$${total.toFixed(2)}<br>
-      `;
-      clearSelectionButton.style.display = 'block';
-    }
-
-    clearSelectionButton.addEventListener('click', () => {
-      selectedStartDate = null;
-      selectedEndDate = null;
-      generateCalendar();
-      updateSummary();
-    });
-
-    reserveButton.addEventListener('click', () => {
-      if (selectedStartDate && selectedEndDate) {
-        alert('Reserva Confirmada!');
-      } else {
-        alert('Por favor, selecione o período.');
+      if (row.children.length > 0) {
+        while (row.children.length < 7) {
+          row.appendChild(document.createElement('td'));
+        }
+        calendar.appendChild(row);
       }
-    });
+    }
 
-    document.getElementById('prevMonth').addEventListener('click', () => {
-      currentMonth.setMonth(currentMonth.getMonth() - 1);
-      generateCalendar();
-    });
-
-    document.getElementById('nextMonth').addEventListener('click', () => {
-      currentMonth.setMonth(currentMonth.getMonth() + 1);
-      generateCalendar();
-    });
-
-    // 🔄 INTEGRAÇÃO COM GOOGLE SHEETS
-    fetch('https://opensheet.elk.sh/2PACX-1vRbZUZD_RuGjPaw7LhV1bJzQT0tX7vndih4VuOlm4pEJ6LktEgiyL7p-fiXh2iewxX3-WpqkB4iaFIL/disponível')
-      .then(res => res.json())
-      .then(data => {
-        data.forEach(row => {
-          if (row['Data'] && row['Disponível']?.toLowerCase().trim() === 'não') {
-            availableDates[row['Data'].trim()] = false;
-          }
-        });
-        generateCalendar(); // ✅ Só gera o calendário quando os dados estiverem prontos
-      });
+    loadCSVData();
   </script>
 </body>
+
 </html>
