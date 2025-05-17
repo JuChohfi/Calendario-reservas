@@ -1,243 +1,242 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calendário de Reservas</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 0;
       padding: 2rem;
-      background-color: #f8f8f8;
+      background-color: #f5f5f5;
       color: #333;
     }
-    .calendar-container {
-      max-width: 360px;
+    .calendar {
+      max-width: 700px;
       margin: 0 auto;
-      background-color: white;
+      background-color: #fff;
       border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
       padding: 1rem;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
     }
-    .calendar-header {
+    .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1rem;
     }
-    .calendar-grid {
+    .month {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    .nav-button {
+      background-color: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+    .grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 0.3rem;
+      gap: 0.5rem;
     }
-    .day, .weekday {
-      width: 42px;
-      height: 42px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .day {
+      text-align: center;
+      padding: 0.5rem;
       border-radius: 8px;
       cursor: pointer;
-      transition: background-color 0.2s;
+      user-select: none;
     }
-    .weekday {
-      font-weight: bold;
-      color: #888;
+    .day:hover {
+      background-color: #e0f2f1;
     }
-    .day.available {
-      background-color: white;
+    .selected, .in-range {
+      background-color: #006d45;
+      color: #fff;
     }
-    .day.unavailable, .day.past {
-      background-color: #e0e0e0;
-      color: #999;
+    .past, .unavailable {
+      background-color: #ccc;
+      color: #777;
       pointer-events: none;
     }
-    .day.selected, .day.in-range {
-      background-color: #006d45;
-      color: white;
+    .available {
+      background-color: #fff;
+      color: #333;
     }
-    .calendar-footer {
+    .summary {
       margin-top: 1rem;
-      text-align: center;
+      font-weight: bold;
+    }
+    .collapsible {
+      margin-top: 1rem;
+      background-color: #eee;
+      border-radius: 8px;
+      padding: 1rem;
     }
     select {
       padding: 0.5rem;
-      margin-top: 0.5rem;
-      border-radius: 8px;
+      font-size: 1rem;
     }
-    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <div class="calendar-container">
-    <div class="calendar-header">
-      <button id="prevMonth">◀</button>
-      <h3 id="monthYear"></h3>
-      <button id="nextMonth">▶</button>
+  <div class="calendar">
+    <div class="header">
+      <button class="nav-button" onclick="prevMonth()">⬅️</button>
+      <div class="month" id="month-year"></div>
+      <button class="nav-button" onclick="nextMonth()">➡️</button>
     </div>
-    <div class="calendar-grid" id="calendarWeekdays"></div>
-    <div class="calendar-grid" id="calendarDays"></div>
-    <div class="calendar-footer">
-      <div>
-        <label>Hóspedes (até 12):
-          <select id="guests">
-            ${[...Array(13).keys()].map(i => `<option value="${i}">${i}</option>`).join('')}
-          </select>
-        </label>
-      </div>
-      <div>
-        <label>Pets (até 2):
-          <select id="pets">
-            <option value="0">0</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-          </select>
-        </label>
-      </div>
-      <div id="totalValue">Total: R$ 0,00</div>
+    <div class="grid" id="calendar-grid"></div>
+    <div class="summary" id="summary"></div>
+    <div class="collapsible">
+      <label for="guests">Hóspedes (até 12): </label>
+      <select id="guests">
+        <option value="0">0</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+        <option value="12">12</option>
+      </select>
+      <br /><br />
+      <label for="pets">Pets (até 2): </label>
+      <select id="pets">
+        <option value="0">0</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+      </select>
     </div>
   </div>
 
   <script>
-    const calendarDays = document.getElementById('calendarDays');
-    const calendarWeekdays = document.getElementById('calendarWeekdays');
-    const monthYear = document.getElementById('monthYear');
-    const prevMonthBtn = document.getElementById('prevMonth');
-    const nextMonthBtn = document.getElementById('nextMonth');
-    const totalValueDisplay = document.getElementById('totalValue');
-    const guestsSelect = document.getElementById('guests');
-    const petsSelect = document.getElementById('pets');
+    const grid = document.getElementById("calendar-grid");
+    const monthYear = document.getElementById("month-year");
+    const summary = document.getElementById("summary");
+    const guestsInput = document.getElementById("guests");
+    const petsInput = document.getElementById("pets");
 
     let currentDate = new Date();
-    let selectedStart = null;
-    let selectedEnd = null;
-    let availabilityData = {};
-
-    const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-    weekdays.forEach(d => {
-      const day = document.createElement('div');
-      day.className = 'weekday';
-      day.textContent = d;
-      calendarWeekdays.appendChild(day);
-    });
-
-    function formatDate(date) {
-      return date.toISOString().split('T')[0];
-    }
+    let startDate = null;
+    let endDate = null;
+    let availability = {};
 
     async function fetchAvailability() {
-      const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbZUZD_RuGjPaw7LhV1bJzQT0tX7vndih4VuOlm4pEJ6LktEgiyL7p-fiXh2iewxX3-WpqkB4iaFIL/pub?gid=0&single=true&output=csv';
-      const response = await fetch(csvUrl);
-      const text = await response.text();
-      const rows = text.trim().split('\n').slice(1);
-      rows.forEach(row => {
-        const [data, disponivel, valor] = row.split(',');
-        availabilityData[data] = {
-          disponivel: disponivel.trim().toLowerCase() === 'sim',
-          valor: parseFloat(valor.replace('R$', '').replace(',', '.')) || 0
-        };
+      const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbZUZD_RuGjPaw7LhV1bJzQT0tX7vndih4VuOlm4pEJ6LktEgiyL7p-fiXh2iewxX3-WpqkB4iaFIL/pub?output=csv";
+      const res = await fetch(url);
+      const text = await res.text();
+      const lines = text.split("\n").slice(1);
+      lines.forEach(line => {
+        const [data, valor, disponivel] = line.split(",");
+        if (data && valor && disponivel) {
+          availability[data.trim()] = {
+            price: parseFloat(valor.replace("R$", "").replace(",", ".")) || 0,
+            available: disponivel.trim().toLowerCase() === "sim"
+          };
+        }
       });
-      renderCalendar();
     }
 
-    function renderCalendar() {
-      calendarDays.innerHTML = '';
-
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
+    function renderCalendar(date) {
+      grid.innerHTML = "";
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const today = new Date();
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
-
-      monthYear.textContent = `${firstDay.toLocaleString('default', { month: 'long' })} de ${year}`;
+      monthYear.textContent = firstDay.toLocaleString("pt-BR", { month: "long", year: "numeric" });
 
       for (let i = 0; i < firstDay.getDay(); i++) {
-        const blank = document.createElement('div');
-        calendarDays.appendChild(blank);
+        grid.innerHTML += `<div></div>`;
       }
 
       for (let d = 1; d <= lastDay.getDate(); d++) {
-        const dayDate = new Date(year, month, d);
-        const isoDate = formatDate(dayDate);
-        const day = document.createElement('div');
-        day.className = 'day';
+        const thisDate = new Date(year, month, d);
+        const iso = thisDate.toISOString().split("T")[0];
+        const dayEl = document.createElement("div");
+        dayEl.textContent = d;
+        dayEl.classList.add("day");
 
-        const isPast = dayDate < new Date(new Date().toDateString());
-        const data = availabilityData[isoDate];
-        const isAvailable = data?.disponivel;
-
-        if (isPast) day.classList.add('past');
-        else if (!isAvailable) day.classList.add('unavailable');
-        else day.classList.add('available');
-
-        if (selectedStart && selectedEnd && dayDate >= selectedStart && dayDate <= selectedEnd) {
-          day.classList.add(dayDate.getTime() === selectedStart.getTime() || dayDate.getTime() === selectedEnd.getTime() ? 'selected' : 'in-range');
+        if (thisDate < today || thisDate > new Date("2025-01-30")) {
+          dayEl.classList.add("past");
+        } else if (!availability[iso] || !availability[iso].available) {
+          dayEl.classList.add("unavailable");
+        } else {
+          dayEl.classList.add("available");
+          dayEl.addEventListener("click", () => handleSelection(thisDate));
         }
 
-        day.textContent = d;
-
-        if (!isPast && isAvailable) {
-          day.onclick = () => selectDate(dayDate);
+        if (startDate && thisDate.getTime() === startDate.getTime()) {
+          dayEl.classList.add("selected");
+        }
+        if (endDate && thisDate.getTime() === endDate.getTime()) {
+          dayEl.classList.add("selected");
+        }
+        if (startDate && endDate && thisDate > startDate && thisDate < endDate) {
+          dayEl.classList.add("in-range");
         }
 
-        calendarDays.appendChild(day);
+        grid.appendChild(dayEl);
       }
     }
 
-    function selectDate(date) {
-      if (!selectedStart || selectedEnd) {
-        selectedStart = date;
-        selectedEnd = null;
-      } else if (date > selectedStart) {
-        selectedEnd = date;
+    function handleSelection(date) {
+      if (!startDate || (startDate && endDate)) {
+        startDate = date;
+        endDate = null;
+      } else if (date > startDate) {
+        endDate = date;
+        showSummary();
       } else {
-        selectedStart = date;
-        selectedEnd = null;
+        startDate = date;
+        endDate = null;
       }
-      renderCalendar();
-      updateTotal();
+      renderCalendar(currentDate);
     }
 
-    function updateTotal() {
-      if (!selectedStart || !selectedEnd) {
-        totalValueDisplay.textContent = 'Total: R$ 0,00';
-        return;
-      }
-
+    function showSummary() {
+      if (!startDate || !endDate) return;
       let total = 0;
-      let tempDate = new Date(selectedStart);
+      let nights = 0;
+      let date = new Date(startDate);
 
-      while (tempDate <= selectedEnd) {
-        const iso = formatDate(tempDate);
-        if (availabilityData[iso]?.disponivel) {
-          total += availabilityData[iso].valor;
+      while (date < endDate) {
+        const iso = date.toISOString().split("T")[0];
+        if (availability[iso] && availability[iso].available) {
+          total += availability[iso].price;
+          nights++;
         }
-        tempDate.setDate(tempDate.getDate() + 1);
+        date.setDate(date.getDate() + 1);
       }
 
-      const guests = parseInt(guestsSelect.value);
-      const pets = parseInt(petsSelect.value);
+      const guests = parseInt(guestsInput.value);
+      const pets = parseInt(petsInput.value);
+      const extras = (guests > 10 ? (guests - 10) * 150 * nights : 0) + (pets > 0 ? 150 : 0);
+      total += extras;
 
-      const nights = Math.ceil((selectedEnd - selectedStart) / (1000 * 60 * 60 * 24));
-      const extraGuests = guests > 10 ? guests - 10 : 0;
-      total += extraGuests * 150 * nights;
-      if (pets > 0) total += 150;
-
-      totalValueDisplay.textContent = `Total: R$ ${total.toFixed(2).replace('.', ',')}`;
+      summary.textContent = `Total: R$ ${total.toFixed(2)} por ${nights} noites`;
     }
 
-    prevMonthBtn.onclick = () => {
+    function prevMonth() {
       currentDate.setMonth(currentDate.getMonth() - 1);
-      renderCalendar();
-    };
-
-    nextMonthBtn.onclick = () => {
+      renderCalendar(currentDate);
+    }
+    function nextMonth() {
       currentDate.setMonth(currentDate.getMonth() + 1);
-      renderCalendar();
-    };
+      renderCalendar(currentDate);
+    }
 
-    fetchAvailability();
+    (async () => {
+      await fetchAvailability();
+      renderCalendar(currentDate);
+    })();
   </script>
 </body>
 </html>
